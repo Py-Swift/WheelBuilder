@@ -67,9 +67,8 @@ jobs:
         run: |
           pip install anaconda-client anaconda-auth
           
-      
       - name: publish-to-anaconda
-				continue-on-error: true
+        continue-on-error: true
         run: |
           anaconda login \
               --at anaconda.org \
@@ -80,9 +79,8 @@ jobs:
           do
             anaconda upload --force $FILE
           done
-
-		- name: Anaconda logout
-			run: anaconda logout --at anaconda.org
+      - name: Anaconda logout
+        run: anaconda logout --at anaconda.org
       
 
           
