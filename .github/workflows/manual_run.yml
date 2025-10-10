@@ -34,7 +34,7 @@ jobs:
       - name: build wheels
         run: |
           mkdir wheels
-          swift run -c release action-build $PWD/wheels
+          swift run -c release WheelBuilderCLI action-build $PWD/wheels
           
       - run: ls build/wheels
 
