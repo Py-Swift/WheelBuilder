@@ -63,3 +63,4 @@ fastlane/test_output
 Package.resolved
 /.swiftpm/xcode
 index.html
+.DS_Store

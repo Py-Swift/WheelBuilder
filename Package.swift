@@ -13,6 +13,7 @@ let package = Package(
         .library(
             name: "WheelBuilder",
             targets: ["WheelBuilder"]),
+        .executable(name: "WheelBuilderCLI", targets: ["WheelBuilderCLI"])
     ],
     dependencies: [
         //.package(path: "../PyPi_Api"),
