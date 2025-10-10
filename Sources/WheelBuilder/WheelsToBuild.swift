@@ -153,7 +153,7 @@ extension AnacondaPackages {
         case .statsmodels: nil
         case .twisted: nil
         case .typed_ast: nil
-        case .ujson: CiWheels.Ujson.self
+        case .ujson: nil//CiWheels.Ujson.self
         case .wordcloud: nil
         case .xz: nil
         case .yarl: nil
