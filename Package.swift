@@ -15,7 +15,8 @@ let package = Package(
             targets: ["WheelBuilder"]),
     ],
     dependencies: [
-        .package(path: "../PyPi_Api"),
+        //.package(path: "../PyPi_Api"),
+        .package(url: "https://github.com/Py-Swift/PyPi_Api", branch: "master"),
         .package(url: "https://github.com/kylef/PathKit", .upToNextMajor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.6.1")),
     ],
