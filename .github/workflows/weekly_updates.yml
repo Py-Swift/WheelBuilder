@@ -1,0 +1,83 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Build Anaconda iOS Wheels
+
+# Controls when the workflow will run
+on:
+  workflow_dispatch:
+    
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    name: Build iOS Wheels
+    # The type of runner that the job will run on
+    #runs-on: self-hosted
+    runs-on: macos-15
+    permissions:
+        contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+      
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.7'
+      #- uses: actions/setup-python@v6
+      #  with:
+      #    python-version: '3.14.rc3'
+
+      - name: install cibuildwheel
+        run: pip3.13 install cibuildwheel
+
+      - name: install maturin
+        run: pip3.13 install maturin
+        
+      - name: build wheels
+        run: |
+          mkdir -p output/wheels
+          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels
+          
+      - run: ls output/wheels
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-output
+          path: ./output
+
+  anaconda_upload:
+    name: Upload to Anaconda
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-output
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.7'
+
+      - name: install anaconda client
+        run: |
+          pip install anaconda-client anaconda-auth
+          
+      
+      - name: publish-to-anaconda
+        run: |
+          anaconda login \
+              --at anaconda.org \
+              --username ${{ secrets.ANACONDA_USER }} \
+              --password "${{ secrets.ANACONDA_PASS }}"
+          cd wheels
+          for FILE in *
+          do
+            anaconda upload --force $FILE
+          done
+          anaconda logout --at anaconda.org
+      
+
+          
