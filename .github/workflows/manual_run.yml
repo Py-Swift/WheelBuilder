@@ -36,15 +36,15 @@ jobs:
         
       - name: build wheels
         run: |
-          mkdir wheels
-          swift run -c release WheelBuilderCLI action-build $PWD/wheels
+          mkdir -p output/wheels
+          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels
           
-      - run: ls build/wheels
+      - run: ls wheels
 
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-output
-          path: ./build
+          path: ./output
 
   anaconda_upload:
     name: Upload to Anaconda
