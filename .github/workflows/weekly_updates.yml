@@ -81,8 +81,8 @@ jobs:
             anaconda upload --force $FILE
           done
 
-			- name: Anaconda logout
-				run: anaconda logout --at anaconda.org
+		- name: Anaconda logout
+			run: anaconda logout --at anaconda.org
       
 
           
