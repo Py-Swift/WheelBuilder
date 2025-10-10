@@ -25,7 +25,10 @@ func which(_ name: String) -> Path {
     guard
         let data = try? pipe.fileHandleForReading.readToEnd(),
         var path = String(data: data, encoding: .utf8)
-    else { fatalError() }
+    else {
+        print(env)
+        fatalError()
+    }
     path.strip()
     return .init(path)
 }
@@ -61,21 +64,21 @@ extension Process {
         try xcrun(args: "--show-sdk-path", "--sdk", "macosx")
     }
     
-    public static func cibuildwheel(target: Path, platform: some PlatformProtocol, env: [String: String]? = nil, output: Path) throws {
+    public static func cibuildwheel(target: Path, platform: some PlatformProtocol, env: [String: String]? = nil, output: Path) async throws {
         let proc = Process()
         proc.executablePath = .cibuildwheel
-        
         proc.arguments = [
+            //Path.cibuildwheel.string,
             target.string,
             "--platform", platform.ci_platform,
             "--archs", platform.ci_archs,
-            "--output-dir", output.string
+            "--output-dir", output.string,
+            
         ]
         
         //proc.currentDirectoryURL = target?.url
-        
         proc.environment = env
-        
+        //fatalError()
         try proc.run()
         
         proc.waitUntilExit()
@@ -117,9 +120,42 @@ extension Process {
         proc.waitUntilExit()
     }
     
+    
+    public static func beeware_pip_download(name: String, output: Path, platform: String) throws {
+        let proc = Process()
+        proc.executablePath = .pip3_13
+        let arguments: [String] = [
+            "download", name, "-d", output.string,
+            "--platform=\(platform)",
+            "--only-binary", ":all:",
+            "--extra-index-url",
+            "https://pypi.anaconda.org/beeware/simple",
+            
+        ]
+        print("pip", arguments)
+        proc.arguments = arguments
+        //proc.currentDirectoryURL = target?.url
+                
+        try proc.run()
+        
+        proc.waitUntilExit()
+    }
 }
 
 public func pip_download(name: String, output: Path) throws -> Path? {
+    try Process.pip_download(name: name, output: output)
+    
+    try output.children().filter({$0.extension == "gz"}).forEach { tar in
+        try untar(tar: tar, destination: output)
+        try tar.delete()
+    }
+    return try output.children().first { path in
+        //print(name, path, path.lastComponent.hasPrefix(name))
+        return path.isDirectory && path.lastComponent.hasPrefix(name)
+    }
+}
+
+public func beeware_pip_download(name: String, output: Path) throws -> Path? {
     try Process.pip_download(name: name, output: output)
     
     try output.children().filter({$0.extension == "gz"}).forEach { tar in
@@ -147,6 +183,68 @@ public func untar(tar: Path, destination: Path) throws {
     proc.waitUntilExit()
 }
 
-public func cibuildwheel(target: Path, platform: some PlatformProtocol, env: [String: String]? = nil, output: Path) throws {
-    try Process.cibuildwheel(target: target, platform: platform, env: env, output: output)
+public func cibuildwheel(target: Path, platform: some PlatformProtocol, env: [String: String]? = nil, output: Path) async throws {
+    try await Process.cibuildwheel(target: target, platform: platform, env: env, output: output)
+}
+
+public enum XcodeBuildConfiguration: String {
+    case debug = "Debug"
+    case release = "Release"
+}
+
+
+
+public func xcodebuild(
+    project: Path,
+    target: String,
+    root: Path? = nil,
+    ONLY_ACTIVE_ARCH: Bool = false,
+    arch: Arch? = nil,
+    sdk: SDK,
+    configuration: XcodeBuildConfiguration = .release,
+    env: [String: String]? = nil,
+    _ extra_args: String...
+) async throws {
+    let proc = Process()
+    proc.executablePath = .xcodebuild
+    var arguments: [String] = [
+        "ONLY_ACTIVE_ARCH=\(ONLY_ACTIVE_ARCH ? "YES" : "NO")"
+    ]
+    
+    if let arch {
+        arguments.append("ARCHS=\(arch)")
+    }
+
+    arguments.append(contentsOf:
+        [
+            "-sdk", sdk.description,
+            "-project", project.string,
+            "-target", target,
+            "-configuration", configuration.rawValue,
+        ] + extra_args
+    )
+    
+    print("xcodebuild", arguments)
+    proc.arguments = arguments
+    proc.currentDirectoryURL = root?.url
+            
+    try proc.run()
+    
+    proc.waitUntilExit()
+}
+
+
+public func python3_run(
+    folder: Path?,
+    args: String...
+) async throws {
+    let proc = Process()
+    proc.executablePath = .python3_13
+    proc.arguments = args
+    proc.currentDirectoryURL = folder?.url
+            
+    try proc.run()
+    
+    proc.waitUntilExit()
+    
 }

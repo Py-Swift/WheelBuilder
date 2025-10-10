@@ -8,7 +8,7 @@ import Tools
 import Foundation
 
 
-public class Pydantic_core: MaturinWheelProtocol {
+public final class Pydantic_core: MaturinWheelProtocol {
     public static let name: String = "pydantic_core"
     
     public var version: String?
@@ -17,10 +17,16 @@ public class Pydantic_core: MaturinWheelProtocol {
     
     public let build_target: BuildTarget = .pypi(name)
     
-    public init(version: String = "") {
+    public var platform: any PlatformProtocol
+    
+    init(version: String? = nil, platform: any PlatformProtocol) {
         self.version = version
+        self.platform = platform
     }
-
+    
+    public static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
+        .init(version: version, platform: platform)
+    }
 }
 
 

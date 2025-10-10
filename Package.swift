@@ -16,7 +16,8 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../PyPi_Api"),
-        .package(url: "https://github.com/kylef/PathKit", .upToNextMajor(from: "1.0.1"))
+        .package(url: "https://github.com/kylef/PathKit", .upToNextMajor(from: "1.0.1")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.6.1")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -60,6 +61,15 @@ let package = Package(
                 .byName(name: "PyPi_Api"),
                 "PlatformInfo",
                 "PathKit"
+            ]
+        ),
+        .executableTarget(
+            name: "WheelBuilderCLI",
+            dependencies: [
+                .byName(name: "PyPi_Api"),
+                "CiWheels",
+                "WheelBuilder",
+                .product(name: "ArgumentParser", package: "swift-argument-parser")
             ]
         ),
         .testTarget(

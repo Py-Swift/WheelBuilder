@@ -5,10 +5,14 @@
 //  Created by CodeBuilder on 07/10/2025.
 //
 import PathKit
+import Foundation
+
+let processInfo = ProcessInfo.processInfo
 
 public enum BuildTarget: CustomStringConvertible {
     case pypi(String)
     case local(Path)
+    case url(URL)
     
     public var description: String {
         switch self {
@@ -16,6 +20,8 @@ public enum BuildTarget: CustomStringConvertible {
             string
         case .local(let path):
             path.string
+        case .url(let url):
+            url.path()
         }
     }
 }

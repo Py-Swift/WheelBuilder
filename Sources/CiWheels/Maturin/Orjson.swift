@@ -1,5 +1,5 @@
 //
-//  Pendulum.swift
+//  Orjson.swift
 //  WheelBuilder
 //
 import PlatformInfo
@@ -8,8 +8,8 @@ import Tools
 import Foundation
 
 
-public final class Pendulum: MaturinWheelProtocol {
-    public static let name: String = "pendulum"
+public final class Orjson: MaturinWheelProtocol {
+    public static let name: String = "orjson"
     
     public var version: String?
     
@@ -27,6 +27,4 @@ public final class Pendulum: MaturinWheelProtocol {
     public static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
         .init(version: version, platform: platform)
     }
-
 }
-

@@ -7,7 +7,7 @@ import PathKit
 import Tools
 import Foundation
 
-public class Greenlet: CiWheelProtocol {
+public final class Greenlet: CiWheelProtocol {
     public static let name: String = "greenlet"
     
     public var version: String?
@@ -16,8 +16,15 @@ public class Greenlet: CiWheelProtocol {
     
     public let build_target: BuildTarget = .pypi(name)
     
-    public init(version: String? = nil) {
+    public var platform: any PlatformProtocol
+    
+    init(version: String? = nil, platform: any PlatformProtocol) {
         self.version = version
+        self.platform = platform
+    }
+    
+    public static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
+        .init(version: version, platform: platform)
     }
     
     

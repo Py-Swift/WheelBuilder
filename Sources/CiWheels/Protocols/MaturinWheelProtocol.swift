@@ -96,11 +96,11 @@ public extension MaturinWheelProtocol {
     
     func fix_wheel_name(root: Path, fn: String, subfix: String) throws {
         if let result = try root.children().first(where: {$0.lastComponent.hasSuffix(subfix)}) {
-            try result.move(result.parent() + fn)
+            try result.move(root + fn)
         }
     }
     
-    func build_wheel(target: Path, platform: any PlatformProtocol, py_cache: CachedPython, output: Path, subfix: String) async throws {
+    func build_wheel(target: Path, py_cache: CachedPython, output: Path, subfix: String) async throws {
         var env = try env(platform: platform)
         
         let ios_sdkroot = try platform.sdk_root()
@@ -121,7 +121,7 @@ public extension MaturinWheelProtocol {
         
         env["SDKROOT"] = ios_sdkroot.string
         env["PYO3_CROSS_LIB_DIR"] = platform.py_maturin_framework(cached: py_cache).string
-        env["OPENSSL_DIR"] = "/usr/local/Cellar/openssl@3/3.5.2"
+        //env["OPENSSL_DIR"] = "/usr/local/Cellar/openssl@3/3.5.2"
         env[platform.cargo_target_key] = cargo_target.joined(separator: " ")
         
         switch build_target {
@@ -129,11 +129,18 @@ public extension MaturinWheelProtocol {
             break
         case .pypi(let pypi):
             if let pypi_folder = try pip_download(name: pypi, output: target) {
+                
                 try await maturin_build(src: pypi_folder, target: platform.maturin_target, wheels: output, env: env)
-                try fix_wheel_name(root: output, fn: "\(pypi_folder.lastComponent)_\(platform.wheel_file_platform).whl", subfix: subfix)
+                try fix_wheel_name(root: output, fn: "\(pypi_folder.lastComponent)-cp313-cp313-\(platform.wheel_file_platform).whl", subfix: subfix)
             }
+        case .url(_):
+            break
         }
         
         
+    }
+    
+    func dependencies_libraries() -> [any LibraryWheelProtocol.Type] {
+        []
     }
 }

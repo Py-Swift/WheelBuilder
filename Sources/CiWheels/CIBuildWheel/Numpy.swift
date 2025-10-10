@@ -1,21 +1,17 @@
 //
-//  Apsw.swift
+//  Untitled.swift
 //  WheelBuilder
 //
 import PlatformInfo
 import PathKit
-import Tools
 import Foundation
 
-
-public final class Apsw: CiWheelProtocol {
-    public static let name: String = "apsw"
+public final class Numpy: CiWheelProtocol {
+    public static let name: String = "numpy"
     
     public var version: String?
     
-    //public var output: Path
-    
-    public let build_target: BuildTarget = .pypi(name)
+    public var build_target: BuildTarget = .pypi(Numpy.name)
     
     public var platform: any PlatformProtocol
     
@@ -30,7 +26,14 @@ public final class Apsw: CiWheelProtocol {
     
     public func env(platform: any PlatformProtocol) throws -> [String : String] {
         var env = base_env(platform: platform)
+        env["CIBW_BEFORE_BUILD"] = ""
         env["CIBW_TEST_SKIP"] = "*"
         return env
+    }
+    
+    public func patches() -> [URL] {
+        [
+            "https://raw.githubusercontent.com/Py-Swift/LibraryPatches/refs/heads/master/numpy.patch"
+        ]
     }
 }

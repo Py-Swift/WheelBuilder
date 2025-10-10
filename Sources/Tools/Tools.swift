@@ -9,17 +9,24 @@ import Foundation
 
 public extension PathKit.Path {
     static let xcrun: Self = which("xcrun")
+    static let xcodebuild: Self = which("xcodebuild")
     static let cibuildwheel: Self = which("cibuildwheel")
+    static let python3_13: Self = which("python3.13")
     static let pip3_13: Self = which("pip3.13")
     static let tar: Self = which("tar")
     static let maturin: Self = which("maturin")
+    static let patch: Self = which("patch")
     //static let cargo: Self = which("cargo")
 }
 
 
 public extension String {
     mutating func extendedPath() {
-        self += (":\(pathsToAdd().joined(separator: ":"))" + ":/Library/Frameworks/Python.framework/Versions/3.13/bin:/Users/codebuilder/anaconda3/bin/" + ":/Users/codebuilder/.cargo/bin")
+        self += (":\(pathsToAdd().joined(separator: ":"))"
+                 + ":/Library/Frameworks/Python.framework/Versions/3.13/bin"
+                 //+ ":/Users/codebuilder/anaconda3/bin/"
+                 //+ ":/Users/codebuilder/.cargo/bin"
+        )
     }
     mutating func strip() {
         self.removeLast(1)
@@ -68,6 +75,33 @@ extension URLSession {
     }
 }
 
+public func downloadTarFile(url: URL, to folder: Path) async throws {
+    //let fn = url.lastPathComponent
+    let file: Path = try await URLSession.shared.download(from: url)
+    try untar(tar: file, destination: folder)
+    try file.delete()
+}
+
+public func patch(file: Path, target: Path) async throws {
+    let proc = Process()
+    
+    proc.executablePath = .patch
+    
+    proc.arguments = [
+        "-t", "-d", target.string, "-p1", "-i", file.string
+    ]
+    
+    try proc.run()
+    proc.waitUntilExit()
+}
+
+public func patch(content: String, fn: String, target: Path) async throws {
+    try await withTemp { tmp in
+        let patch_file = (tmp + "\(fn).patch")
+        try patch_file.write(content)
+        try await patch(file: patch_file, target: target)
+    }
+}
 
 public func download_python(version: String, build: String, to folder: Path) async throws {
     let fn = "Python-\(version)-iOS-support.\(build).tar.gz"
@@ -90,19 +124,29 @@ public func modify_python(path: Path, version: String) async throws {
     
 }
 
+public func downloadURL(url: URL, to dest: Path) async throws -> Path {
+    let file: Path = try await URLSession.shared.download(from: url)
+    let dest_file = dest + file.lastComponent
+    try file.move(dest_file)
+    return dest_file
+}
+
 public final class CachedPython {
     let root = try! Path.uniqueTemporary()
     //var py_fw: Path?
+    var src_ready: Bool = false
+    public var version: String = ""
     
     public init() {
         
     }
     
     public func download(version: String, build: String) async throws {
-        //Task {[unowned self] in
-            try await download_python(version: version, build: build, to: root)
-            try await modify_python(path: self.python, version: version)
-        //}
+        if src_ready { return }
+        try await download_python(version: version, build: build, to: root)
+        try await modify_python(path: self.python, version: version)
+        src_ready.toggle()
+        self.version = version
     }
     
     deinit {

@@ -11,7 +11,7 @@ import PathKit
 @testable import Tools
 
 
-fileprivate func build_test(working_dir: Path, wheel: any MaturinWheelProtocol, py_cache: CachedPython) async throws {
+fileprivate func build_test(working_dir: Path, wheel: any MaturinWheelProtocol.Type, py_cache: CachedPython) async throws {
     let wheels_dir = working_dir + "wheels"
     try wheels_dir.mkpath()
     
@@ -24,9 +24,9 @@ fileprivate func build_test(working_dir: Path, wheel: any MaturinWheelProtocol, 
     ]
     
     for platform in platforms {
+        let wheel = wheel.new(version: nil, platform: platform)
         try await wheel.build_wheel(
             target: working_dir,
-            platform: platform,
             py_cache: py_cache,
             output: wheels_dir,
             subfix: "_x86_64.whl"
@@ -64,19 +64,19 @@ final class MaturinWheelTests: XCTestCase {
     
     func test_cryptography() async throws {
         try await withTemp { tmp in
-            try await build_test(working_dir: tmp, wheel: CiWheels.Cryptography(), py_cache: Self.python3_13)
+            try await build_test(working_dir: tmp, wheel: CiWheels.Cryptography.self, py_cache: Self.python3_13)
         }
     }
     
     func test_pendulum() async throws {
         try await withTemp { tmp in
-            try await build_test(working_dir: tmp, wheel: CiWheels.Pendulum(), py_cache: Self.python3_13)
+            try await build_test(working_dir: tmp, wheel: CiWheels.Pendulum.self, py_cache: Self.python3_13)
         }
     }
     
     func test_pydantic_core() async throws {
         try await withTemp { tmp in
-            try await build_test(working_dir: tmp, wheel: CiWheels.Pydantic_core(), py_cache: Self.python3_13)
+            try await build_test(working_dir: tmp, wheel: CiWheels.Pydantic_core.self, py_cache: Self.python3_13)
         }
     }
     
