@@ -39,7 +39,7 @@ jobs:
       - name: build wheels
         run: |
           mkdir -p output/wheels
-          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checked
+          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
           
       - run: ls output/wheels
 
