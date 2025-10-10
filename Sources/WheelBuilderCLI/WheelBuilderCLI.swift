@@ -141,9 +141,9 @@ public func compare_versions(target: IphoneosWheelSources.PackageData) async thr
     
     let pypi = await PyPi.getApi(for: target.name)
     
-    let lastest_version = target.versions.last
+    let lastest_version = target.latest_version
     
-    if let lastest_version,let pypi {
+    if let pypi {
         let needs_build = pypi.info.version > lastest_version
         if needs_build {
             print("\n############# \(target.name) #############")
