@@ -30,6 +30,9 @@ jobs:
 
       - name: install cibuildwheel
         run: pip3.13 install cibuildwheel
+
+      - name: install maturin
+        run: pip3.13 install maturin
         
       - name: build wheels
         run: |
@@ -61,6 +64,7 @@ jobs:
       - name: install anaconda client
         run: |
           pip install anaconda-client anaconda-auth
+          
       
       - name: publish-to-anaconda
         run: |
