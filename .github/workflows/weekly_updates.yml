@@ -69,6 +69,7 @@ jobs:
           
       
       - name: publish-to-anaconda
+				continue-on-error: true
         run: |
           anaconda login \
               --at anaconda.org \
@@ -79,7 +80,9 @@ jobs:
           do
             anaconda upload --force $FILE
           done
-          anaconda logout --at anaconda.org
+
+			- name: Anaconda logout
+				run: anaconda logout --at anaconda.org
       
 
           
