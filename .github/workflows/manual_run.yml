@@ -39,7 +39,7 @@ jobs:
           mkdir -p output/wheels
           swift run -c release WheelBuilderCLI action-build $PWD/output/wheels
           
-      - run: ls wheels
+      - run: ls output/wheels
 
       - uses: actions/upload-artifact@v4
         with:
