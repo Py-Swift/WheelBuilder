@@ -19,7 +19,9 @@ jobs:
     runs-on: macos-15
     permissions:
         contents: write
-
+    outputs:
+      needs_upload: ${{ steps.needs_upload.outputs.var }}
+    
     steps:
       - uses: actions/checkout@v5
       
@@ -40,8 +42,19 @@ jobs:
         run: |
           mkdir -p output/wheels
           swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
-          
-      - run: ls output/wheels
+
+      - id: needs_upload
+        run: |
+          ls output/wheels
+          if find output/wheels -mindepth 1 -maxdepth 1 | read; then
+            echo "var=true" >> $GITHUB_OUTPUT
+          else
+            echo "var=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: display needs_upload
+        run: |
+          echo "${{ steps.needs_upload.outputs.var }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -51,6 +64,7 @@ jobs:
   anaconda_upload:
     name: Upload to Anaconda
     needs: [build]
+    if: needs.build.outputs.needs_upload == 'true'
     runs-on: ubuntu-latest
 
     steps:
