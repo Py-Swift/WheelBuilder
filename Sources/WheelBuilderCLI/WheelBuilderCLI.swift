@@ -103,6 +103,7 @@ extension WheelBuilderCLI {
             case let ciwheel as CiWheelProtocol.Type:
                 try await buildCiWheels(
                     wheel: ciwheel,
+                    version: version,
                     wheel_output: .init(output)
                 )
             case let library as LibraryWheelProtocol.Type:

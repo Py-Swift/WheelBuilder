@@ -128,10 +128,7 @@ public extension MaturinWheelProtocol {
         case .local(_):
             break
         case .pypi(var pypi):
-            if let version {
-                pypi = "\(pypi)==\(version)"
-            }
-            if let pypi_folder = try pip_download(name: pypi, output: target) {
+            if let pypi_folder = try pip_download(name: pypi, version: version, output: target) {
                 
                 try await maturin_build(src: pypi_folder, target: platform.maturin_target, wheels: output, env: env)
                 try fix_wheel_name(root: output, fn: "\(pypi_folder.lastComponent)-cp313-cp313-\(platform.wheel_file_platform).whl", subfix: subfix)

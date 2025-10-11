@@ -142,8 +142,12 @@ extension Process {
     }
 }
 
-public func pip_download(name: String, output: Path) throws -> Path? {
-    try Process.pip_download(name: name, output: output)
+public func pip_download(name: String, version: String?, output: Path) throws -> Path? {
+    if let version {
+        try Process.pip_download(name: "\(name)==\(version)", output: output)
+    } else {
+        try Process.pip_download(name: name, output: output)
+    }
     
     try output.children().filter({$0.extension == "gz"}).forEach { tar in
         try untar(tar: tar, destination: output)

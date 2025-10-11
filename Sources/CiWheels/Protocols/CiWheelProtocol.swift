@@ -72,10 +72,7 @@ public extension CiWheelProtocol {
                 output: wheels_dir
             )
         case .pypi(var pypi):
-            if let version {
-                pypi = "\(pypi)==\(version)"
-            }
-            if let pypi_folder = try pip_download(name: pypi, output: working_dir) {
+            if let pypi_folder = try pip_download(name: pypi, version: version, output: working_dir) {
                 try await apply_patches(target: pypi_folder, working_dir: working_dir)
                 
                 //print(working_dir.map(\.self))
