@@ -60,7 +60,7 @@ jobs:
   anaconda_upload:
     name: Upload to Anaconda
     needs: [build]
-    if: ${{ needs.build.outputs.needs_upload }} == 0
+    if: ${{ needs.build.outputs.needs_upload }} == 1
     runs-on: ubuntu-latest
 
     steps:
