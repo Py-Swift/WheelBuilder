@@ -47,9 +47,9 @@ jobs:
         run: |
           ls output/wheels
           if find output/wheels -mindepth 1 -maxdepth 1 | read; then
-            echo "var=1" >> $GITHUB_OUTPUT
+            echo "var=true" >> $GITHUB_OUTPUT
           else
-            echo "var=0" >> $GITHUB_OUTPUT
+            echo "var=false" >> $GITHUB_OUTPUT
           fi
 
       - uses: actions/upload-artifact@v4
@@ -60,7 +60,7 @@ jobs:
   anaconda_upload:
     name: Upload to Anaconda
     needs: [build]
-    if: ${{ needs.build.outputs.needs_upload }} == 1
+    if: ${{ needs.build.outputs.needs_upload }} == "true"
     runs-on: ubuntu-latest
 
     steps:
