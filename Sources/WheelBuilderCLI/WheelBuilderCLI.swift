@@ -73,7 +73,10 @@ extension WheelBuilderCLI {
         
         @Argument(transform: {AnacondaPackages(rawValue: $0)}) var package
         
+        
         @Argument var output: String
+        
+        @Option(name: .long) var version: String?
         
         @Flag var all: Bool = false
         
@@ -91,13 +94,22 @@ extension WheelBuilderCLI {
                 
                 let py_cache = CachedPython()
                 try await py_cache.download(version: "3.13", build: "b10")
-                try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, wheel_output: .init(output))
-                
+                try await buildMaturinWheels(
+                    wheel: maturin,
+                    version: version,
+                    py_cache: py_cache,
+                    wheel_output: .init(output)
+                )
             case let ciwheel as CiWheelProtocol.Type:
-                try await buildCiWheels(wheel: ciwheel, wheel_output: .init(output))
-                
+                try await buildCiWheels(
+                    wheel: ciwheel,
+                    wheel_output: .init(output)
+                )
             case let library as LibraryWheelProtocol.Type:
-                try await buildCiWheels(wheel: library, wheel_output: .init(output))
+                try await buildCiWheels(
+                    wheel: library,
+                    wheel_output: .init(output)
+                )
             default: fatalError()
             }
         }

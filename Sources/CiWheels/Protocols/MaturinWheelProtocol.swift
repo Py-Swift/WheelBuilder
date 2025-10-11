@@ -127,7 +127,10 @@ public extension MaturinWheelProtocol {
         switch build_target {
         case .local(_):
             break
-        case .pypi(let pypi):
+        case .pypi(var pypi):
+            if let version {
+                pypi = "\(pypi)==\(version)"
+            }
             if let pypi_folder = try pip_download(name: pypi, output: target) {
                 
                 try await maturin_build(src: pypi_folder, target: platform.maturin_target, wheels: output, env: env)

@@ -8,7 +8,7 @@ import Foundation
 import PlatformInfo
 import Platforms
 
-public func buildCiWheels(wheel: any CiWheelProtocol.Type, wheel_output: Path) async throws {
+public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
         let platforms: [any PlatformProtocol] = [
             try Platforms.Iphoneos(),
@@ -24,13 +24,13 @@ public func buildCiWheels(wheel: any CiWheelProtocol.Type, wheel_output: Path) a
                 try await lib.build_library_platform(working_dir: working_dir)
                 try await lib.post_build_library(working_dir: working_dir)
             }
-            try await wheel.build_wheel(working_dir: working_dir, wheels_dir: wheel_output)
+            try await wheel.build_wheel(working_dir: working_dir, version: version, wheels_dir: wheel_output)
         }
     }
 }
 
 
-public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, py_cache: CachedPython, wheel_output: Path) async throws {
+public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: String? = nil, py_cache: CachedPython, wheel_output: Path) async throws {
     try await withTemp { working_dir in
         let platforms: [any PlatformProtocol] = [
             try Platforms.Iphoneos(),
@@ -39,7 +39,7 @@ public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, py_cache: C
         ]
         
         for platform in platforms {
-            let wheel = wheel.new(version: nil, platform: platform, root: working_dir)
+            let wheel = wheel.new(version: version, platform: platform, root: working_dir)
             
             for lib_wheel in wheel.dependencies_libraries() {
                 let lib = lib_wheel.new(version: nil, platform: platform, root: working_dir)

@@ -60,7 +60,7 @@ public extension CiWheelProtocol {
         
     }
     
-    func build_wheel(working_dir: Path, wheels_dir: Path) async throws {
+    func build_wheel(working_dir: Path, version: String? = nil, wheels_dir: Path) async throws {
         try await pre_build(platform: platform, target: working_dir)
         if try await _build_wheel(platform: platform, output: working_dir) { return }
         switch build_target {
@@ -71,7 +71,10 @@ public extension CiWheelProtocol {
                 env: env(platform: platform),
                 output: wheels_dir
             )
-        case .pypi(let pypi):
+        case .pypi(var pypi):
+            if let version {
+                pypi = "\(pypi)==\(version)"
+            }
             if let pypi_folder = try pip_download(name: pypi, output: working_dir) {
                 try await apply_patches(target: pypi_folder, working_dir: working_dir)
                 
