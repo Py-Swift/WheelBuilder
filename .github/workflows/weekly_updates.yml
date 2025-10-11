@@ -54,7 +54,7 @@ jobs:
       
       - name: display needs_upload
         run: |
-          echo "${{ steps.needs_upload.outputs.var }}
+          echo "${{ steps.needs_upload.outputs.var }}"
 
       - uses: actions/upload-artifact@v4
         with:
