@@ -20,7 +20,7 @@ jobs:
     permissions:
         contents: write
     outputs:
-      sha: ${{ steps.needs_upload.outputs.var }}
+      needs_upload: ${{ steps.needs_upload.outputs.var }}
     
     steps:
       - uses: actions/checkout@v5
@@ -51,6 +51,10 @@ jobs:
           else
             echo "var=false" >> $GITHUB_OUTPUT
           fi
+      
+      - name: display needs_upload
+        run: |
+          echo "${{ steps.needs_upload.outputs.var }}
 
       - uses: actions/upload-artifact@v4
         with:
