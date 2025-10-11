@@ -5,8 +5,15 @@ name: Build a iOS Wheel
 # Controls when the workflow will run
 on:
   workflow_dispatch:
-    
-
+    inputs:
+      name:
+        description: 'pypi name'
+        required: true
+        type: string
+      version:
+        description: 'pypi version'
+        required: true
+        type: string
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -37,7 +44,7 @@ jobs:
       - name: build wheels
         run: |
           mkdir -p output/wheels
-          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels
+          swift run -c release WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }}
           
       - run: ls output/wheels
 
