@@ -11,12 +11,14 @@ public class RepoFolder {
     public let root: Path
     public var folders: [WheelFolder] = []
     
-    init(root: Path) throws {
+    public init(root: Path) throws {
         self.root = root
-        let whls = try root.children().filter(\.is_whl)
+        let whls = try root.children().filter(\.is_whl).sorted()
         
         let groups = whls.chunked(on: \.whl_name)
-        
+        for group in groups {
+            print(group)
+        }
         folders = groups.map({ (name, wheels) in
             .init(
                 name: name,
@@ -37,10 +39,12 @@ public class RepoFolder {
         """
     }
     
-    func generate_simple(output: Path) throws {
+    public func generate_simple(output: Path) throws {
         let simple = output + "simple"
         
-        try simple.mkpath()
+        if !simple.exists {
+            try simple.mkpath()
+        }
         
         try (simple + "index.html").write(html())
         
@@ -83,8 +87,9 @@ public class WheelFolder {
     func generate_index(output: Path) throws {
         let root = output + name
         let index = root + "index.html"
-        
-        try root.mkpath()
+        if !root.exists {
+            try root.mkpath()
+        }
         
         try index.write(html())
         

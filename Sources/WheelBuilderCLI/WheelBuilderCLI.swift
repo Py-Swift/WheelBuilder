@@ -18,7 +18,8 @@ struct WheelBuilderCLI: AsyncParsableCommand {
         subcommands: [
             Build.self,
             ActionBuild.self,
-            BuildAll.self
+            BuildAll.self,
+            PipRepo.self
         ]
     )
     
@@ -147,7 +148,18 @@ extension WheelBuilderCLI {
         }
     }
     
-    
+    struct PipRepo: AsyncParsableCommand {
+        
+        @Argument var src_folder: String
+        
+        @Argument var output: String
+        
+        func run() async throws {
+            let repo = try RepoFolder(root: .init(src_folder))
+            try repo.generate_simple(output: .init(output))
+        }
+        
+    }
 }
 
 
