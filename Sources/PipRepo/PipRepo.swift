@@ -19,7 +19,6 @@ public class RepoFolder {
         
         folders = groups.map({ (name, wheels) in
             .init(
-                root: root + name,
                 name: name,
                 wheels: .init(wheels)
             )
