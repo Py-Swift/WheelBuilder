@@ -1,5 +1,5 @@
 //
-//  Atom.swift
+//  Twisted.swift
 //  WheelBuilder
 //
 import PlatformInfo
@@ -8,7 +8,7 @@ import Tools
 import Foundation
 
 @WheelClass
-public final class Atom: CiWheelProtocol {
+public final class Pyzmq: CiWheelProtocol {
 
 }
 

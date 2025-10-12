@@ -10,33 +10,38 @@ import PathKit
 
 public protocol WheelProtocol {
     static var name: String { get }
-    var version: String? { get }
+    var version: String? { get set }
     //var output: Path { get }
     var build_target: BuildTarget { get }
     
     
     //associatedtype Platform: PlatformProtocol
-    var platform: any PlatformProtocol { get }
+    var platform: any PlatformProtocol { get set }
+    
+    var root: Path { get set }
+    
     
     
     
     func urls() -> [URL]
-    func env(platform: any PlatformProtocol) throws -> [String:String]
+    func env() throws -> [String:String]
     
     func patches() -> [URL]
     func apply_patches(target: Path, working_dir: Path) async throws
     
-    func pre_build(platform: any PlatformProtocol, target: Path) async throws
-    func _build_wheel(platform: any PlatformProtocol, output: Path) async throws -> Bool
+    func pre_build(target: Path) async throws
+    func _build_wheel(output: Path) async throws -> Bool
     
-    func get_cflags(platform: any PlatformProtocol) -> Env.CFlags
-    func get_ldflags(platform: any PlatformProtocol) -> Env.LDFlags
+    func get_cflags() -> Env.CFlags
+    func get_ldflags() -> Env.LDFlags
     
     func dependencies_libraries() -> [any LibraryWheelProtocol.Type]
 }
 
 
 public extension WheelProtocol {
+    
+    
     
     func patches() -> [URL] {[]}
     

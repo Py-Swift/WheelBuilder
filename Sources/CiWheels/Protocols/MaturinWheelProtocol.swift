@@ -86,8 +86,8 @@ extension PlatformProtocol {
 
 public extension MaturinWheelProtocol {
     
-    func env(platform: any PlatformProtocol) throws -> [String : String] {
-        var env = base_env(platform: platform) + ProcessInfo.processInfo.environment
+    func env() throws -> [String : String] {
+        var env = base_env() + ProcessInfo.processInfo.environment
         
         env["PATH"]?.extendedPath() 
         
@@ -101,7 +101,7 @@ public extension MaturinWheelProtocol {
     }
     
     func build_wheel(target: Path, py_cache: CachedPython, output: Path, subfix: String) async throws {
-        var env = try env(platform: platform)
+        var env = try env()
         
         let ios_sdkroot = try platform.sdk_root()
         
@@ -127,7 +127,7 @@ public extension MaturinWheelProtocol {
         switch build_target {
         case .local(_):
             break
-        case .pypi(var pypi):
+        case .pypi(let pypi):
             if let pypi_folder = try pip_download(name: pypi, version: version, output: target) {
                 
                 try await maturin_build(src: pypi_folder, target: platform.maturin_target, wheels: output, env: env)

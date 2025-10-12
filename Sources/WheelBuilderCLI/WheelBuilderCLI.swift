@@ -8,6 +8,8 @@ import CiWheels
 import PathKit
 import Tools
 import PyPi_Api
+import PipRepo
+
 
 @main
 struct WheelBuilderCLI: AsyncParsableCommand {

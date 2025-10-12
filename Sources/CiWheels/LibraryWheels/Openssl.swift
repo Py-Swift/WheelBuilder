@@ -7,17 +7,13 @@ import PathKit
 import Tools
 import Foundation
 
-
+@LibraryClass
 public final class Openssl: LibraryWheelProtocol {
+   
+ 
     
-    public static let name: String = "openssl"
     
     static var default_version: String = "3.0.17-1"
-    
-    public var version: String?
-    
-    //public var output: Path
-    public var root: Path
     
     public var build_target: BuildTarget {
         let v = version ?? Self.default_version
@@ -28,17 +24,7 @@ public final class Openssl: LibraryWheelProtocol {
         )
     }
     
-    public var platform: any PlatformProtocol
     
-    init(version: String? = nil, platform: any PlatformProtocol, root: Path) {
-        self.version = version
-        self.platform = platform
-        self.root = root + Self.name
-    }
-    
-    public static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
-        .init(version: version, platform: platform, root: root)
-    }
 
     public func pre_build_library(working_dir: Path) async throws {
         

@@ -61,6 +61,7 @@ public enum AnacondaPackages: String, CaseIterable {
     case pycurl
     case pydantic_core = "pydantic-core"
     case pymunk
+    case pyzmq
     case pynacl
     case pyobjus
     case pysha3
@@ -130,7 +131,7 @@ extension AnacondaPackages {
         case .numpy: CiWheels.Numpy.self
         case .openssl: nil
         case .orjson: CiWheels.Orjson.self
-        case .pandas: CiWheels.Pandas.self
+        case .pandas: nil//CiWheels.Pandas.self
         case .pendulum: CiWheels.Pendulum.self
 //        case .pillow: nil
         case .preshed: nil
@@ -139,6 +140,7 @@ extension AnacondaPackages {
         case .pycurl: nil
         case .pydantic_core: CiWheels.Pydantic_core.self
         case .pymunk: CiWheels.Pymunk.self
+        case .pyzmq: CiWheels.Pyzmq.self
         case .pynacl: nil
         case .pyobjus: nil
         case .pysha3: nil

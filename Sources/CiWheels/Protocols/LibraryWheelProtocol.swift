@@ -8,6 +8,9 @@ import Tools
 import PathKit
 
 public protocol LibraryWheelProtocol: WheelProtocol {
+    
+    init(version: String?, platform: any PlatformProtocol, root: Path)
+    
     var root: Path { get set }
     func pre_build_library(working_dir: Path) async throws
     func build_library_platform(working_dir: Path) async throws
@@ -20,13 +23,18 @@ public protocol LibraryWheelProtocol: WheelProtocol {
 }
 
 public extension LibraryWheelProtocol {
+    
+    static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
+        .init(version: version, platform: platform, root: root + Self.name)
+    }
+    
     func urls() -> [URL] {[]}
     
     
-    func pre_build(platform: any PlatformProtocol, target: Path) async throws {}
-    func _build_wheel(platform: any PlatformProtocol, output: Path) async throws -> Bool { false }
+    func pre_build(target: Path) async throws {}
+    func _build_wheel(output: Path) async throws -> Bool { false }
     
-    func get_cflags(platform: any PlatformProtocol) -> Env.CFlags {
+    func get_cflags() -> Env.CFlags {
         platform.cflags
     }
     
@@ -38,28 +46,28 @@ public extension LibraryWheelProtocol {
         [.library(lib_dir())]
     }
     
-    func get_ldflags(platform: any PlatformProtocol) -> Env.LDFlags {
+    func get_ldflags() -> Env.LDFlags {
         platform.ldflags
     }
     
-    func base_env(platform: any PlatformProtocol) -> [String:String] {
+    func base_env() -> [String:String] {
         [
-            "CFLAGS": get_cflags(platform: platform).description,
-            "LDFLAGS": get_ldflags(platform: platform).description
+            "CFLAGS": get_cflags().description,
+            "LDFLAGS": get_ldflags().description
         ] + processInfo.environment
     }
     
-    func env(platform: any PlatformProtocol) throws -> [String : String] {
-        base_env(platform: platform)
+    func env() throws -> [String : String] {
+        base_env()
     }
     
     func build_library_platform(working_dir: Path) async throws {
-        try await pre_build(platform: platform, target: working_dir)
+        try await pre_build(target: working_dir)
     }
     
     func build_wheel(working_dir: Path, wheels_dir: Path) async throws {
         
-        if try await _build_wheel(platform: platform, output: working_dir) { return }
+        if try await _build_wheel(output: working_dir) { return }
         
     }
     

@@ -7,17 +7,11 @@ import PathKit
 import Tools
 import Foundation
 
-
+@LibraryClass
 public final class Libffi: LibraryWheelProtocol {
     
-    public static let name: String = "libffi"
-    
     static var default_version: String = "3.4.7-2"
-    
-    public var version: String?
-    
-    //public var output: Path
-    public var root: Path
+
     
     public var build_target: BuildTarget {
         let v = version ?? Self.default_version
@@ -28,18 +22,7 @@ public final class Libffi: LibraryWheelProtocol {
             "https://github.com/beeware/cpython-apple-source-deps/releases/download/libFFI-\(v)/libffi-\(v)-\(sdk).\(arch).tar.gz"
         )
     }
-    
-    public var platform: any PlatformProtocol
-    
-    init(version: String? = nil, platform: any PlatformProtocol, root: Path) {
-        self.version = version
-        self.platform = platform
-        self.root = root + Self.name
-    }
-    
-    public static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
-        .init(version: version, platform: platform, root: root)
-    }
+
 
     public func pre_build_library(working_dir: Path) async throws {
         
@@ -55,7 +38,9 @@ public final class Libffi: LibraryWheelProtocol {
         }
         let libffi: Path = working_dir //+ "libffi-\(version ?? Self.default_version)"
         
-        print(try working_dir.children())
+        for file in try working_dir.children() {
+            print(Self.self,"found", file)
+        }
         
         let libmain_folder = working_dir + "libffi"
         
@@ -63,7 +48,7 @@ public final class Libffi: LibraryWheelProtocol {
         let arch = platform.get_arch()
         let lib_platform = libmain_folder + "\(sdk)_\(arch)"
         
-        try? lib_platform.mkpath()
+        try! lib_platform.mkpath()
         
         let include = libffi + "include"
         let lib = libffi + "lib"
@@ -72,8 +57,8 @@ public final class Libffi: LibraryWheelProtocol {
         
         try? include_target.mkdir()
         
-        try include.move(include_target + "ffi")
-        try lib.move(lib_dir())
+        try! include.move(include_target + "ffi")
+        try! lib.move(lib_dir())
         //let libffi_folder = working_dir + "libffi-\(version ?? Self.default_version)"
         
         
