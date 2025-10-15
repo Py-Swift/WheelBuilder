@@ -10,7 +10,7 @@ import Foundation
 @WheelClass
 public final class SQLAlchemy: CiWheelProtocol {
  
-    public func env(platform: any PlatformProtocol) throws -> [String : String] {
+    public func env() throws -> [String : String] {
         var env = base_env()
         env["CIBW_TEST_SKIP"] = "*"
         return env

@@ -11,7 +11,7 @@ import Foundation
 public final class Cryptography: MaturinWheelProtocol {
    
     
-    public func env(platform: any PlatformProtocol) throws -> [String : String] {
+    public func env() throws -> [String : String] {
         var env = base_env()
         env["OPENSSL_DIR"] = (root + "openssl/\(platform.sdk_arch)").string //"/usr/local/Cellar/openssl@3/3.5.2"
         return env

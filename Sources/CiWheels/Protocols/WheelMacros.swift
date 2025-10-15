@@ -2,9 +2,7 @@
 //  WheelMacros.swift
 //  WheelBuilder
 //
-//  Created by CodeBuilder on 11/10/2025.
-//
-import WheelBuilderMacros
+
 import SwiftSyntaxMacros
 
 @attached(member, names: arbitrary)

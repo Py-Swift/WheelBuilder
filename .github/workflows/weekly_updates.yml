@@ -57,6 +57,7 @@ jobs:
           echo "${{ steps.needs_upload.outputs.var }}"
 
       - uses: actions/upload-artifact@v4
+        if: steps.needs_upload.outputs.var == 'true'
         with:
           name: wheels-output
           path: ./output
