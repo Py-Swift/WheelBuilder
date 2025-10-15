@@ -41,7 +41,7 @@ jobs:
       - name: install maturin
         run: pip3.13 install maturin
 
-      - name: install rust ios targets:
+      - name: install rust ios targets
         run: |
           rustup target add aarch64-apple-ios
           rustup target add aarch64-apple-ios-sim
