@@ -47,6 +47,11 @@ jobs:
           rustup target add aarch64-apple-ios-sim
           rustup target add x86_64-apple-ios
       
+      - name: build WheelBuilderCLI
+        run: |
+          mkdir -p output/wheels
+          swift build -c release WheelBuilderCLI
+
       - name: build wheels
         run: |
           mkdir -p output/wheels
