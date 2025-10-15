@@ -59,7 +59,7 @@ public enum AnacondaPackages: String, CaseIterable {
     case pycrypto
     case pycryptodome
     case pycurl
-    case pydantic_core = "pydantic-core"
+    case pydantic_core = "pydantic_core"
     case pymunk
     case pyzmq
     case pynacl
