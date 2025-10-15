@@ -7,6 +7,7 @@ import Tools
 import Foundation
 import PlatformInfo
 import Platforms
+import SwiftCPUDetect
 
 public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
@@ -49,11 +50,17 @@ public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: St
             }
             //continue
             
+            let subfix = switch CpuArchitecture.current() ?? .intel64 {
+            case .arm64: "arm64"
+            case .intel64: "x86_64"
+            default: "x86_64"
+            }
+            
             try await wheel.build_wheel(
                 target: working_dir,
                 py_cache: py_cache,
                 output: wheel_output,
-                subfix: "_x86_64.whl"
+                subfix: "_\(subfix).whl"
             )
         }
     }
