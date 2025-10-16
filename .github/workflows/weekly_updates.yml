@@ -34,7 +34,7 @@ jobs:
 
       - name: install wheelbuilder
         run: |
-          wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/download/latest/WheelBuilderCLI.tar.gz"
+          wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/latest/download/WheelBuilderCLI.tar.gz"
           tar -xzvf WheelBuilderCLI.tar.gz -C ./
 
       - name: install cibuildwheel
