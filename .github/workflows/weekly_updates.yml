@@ -32,6 +32,11 @@ jobs:
       #  with:
       #    python-version: '3.14.rc3'
 
+      - name: install wheelbuilder
+        run: |
+          wget -O angle-iphoneall-universal.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/download/latest/WheelBuilderCLI.tar.gz"
+          tar -xzvf WheelBuilderCLI -C ./
+
       - name: install cibuildwheel
         run: pip3.13 install cibuildwheel
 
@@ -40,8 +45,9 @@ jobs:
         
       - name: build wheels
         run: |
-          mkdir -p output/wheels
-          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
+          #mkdir -p output/wheels
+          #swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
+          release/WheelBuilderCLI action-build $PWD/output/wheels --checks
 
       - id: needs_upload
         run: |
