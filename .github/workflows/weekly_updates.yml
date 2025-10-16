@@ -34,8 +34,8 @@ jobs:
 
       - name: install wheelbuilder
         run: |
-          wget -O angle-iphoneall-universal.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/download/latest/WheelBuilderCLI.tar.gz"
-          tar -xzvf WheelBuilderCLI -C ./
+          wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/download/latest/WheelBuilderCLI.tar.gz"
+          tar -xzvf WheelBuilderCLI.tar.gz -C ./
 
       - name: install cibuildwheel
         run: pip3.13 install cibuildwheel
