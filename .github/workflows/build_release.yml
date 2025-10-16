@@ -44,10 +44,8 @@ jobs:
               
               mkdir release
               lipo -create $X64BIN $ARMBIN -output release/WheelBuilderCLI
-              #cp -rf .build/apple/Products/Release/PSProjectCLI release/PSProject
-              #cp -rf .build/x86_64-apple-macosx/release/PSProjectGenerator_PSProjectGen.bundle release/
-              cp -rf .build/x86_64-apple-macosx/release/Python.framework release/
-              tar -C ./release/ -czvf ./WheelBuilderCLI.tar.gz ./    
+
+              tar -czvf ./release/WheelBuilderCLI ./WheelBuilderCLI.tar.gz  
       
       - name: Set SHA256
         id: shasum
