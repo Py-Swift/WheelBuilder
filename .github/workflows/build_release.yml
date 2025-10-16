@@ -45,7 +45,7 @@ jobs:
               mkdir release
               lipo -create $X64BIN $ARMBIN -output release/WheelBuilderCLI
 
-              tar -czvf ./release/WheelBuilderCLI ./WheelBuilderCLI.tar.gz  
+              tar -czvf ./WheelBuilderCLI.tar.gz ./release/WheelBuilderCLI
       
       - name: Set SHA256
         id: shasum
