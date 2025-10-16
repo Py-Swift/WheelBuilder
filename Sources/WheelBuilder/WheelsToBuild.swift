@@ -95,7 +95,7 @@ extension AnacondaPackages {
         case .apsw: CiWheels.Apsw.self
         case .argon2_cffi: nil
         case .backports_zoneinfo: nil
-        case .bcrypt: nil
+        case .bcrypt: CiWheels.Bcrypt.self
         case .bitarray: CiWheels.Bitarray.self
         case .brotli: nil
         case .bzip2: nil
@@ -146,7 +146,7 @@ extension AnacondaPackages {
         case .pysha3: nil
         case .pywavelets: nil
         case .pyzbar: nil
-        case .regex: nil
+        case .regex: CiWheels.Regex.self
         case .ruamel_yaml_clib: nil
         case .scandir: nil
         case .spectrum: nil
