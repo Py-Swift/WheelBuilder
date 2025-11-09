@@ -60,7 +60,7 @@ public enum AnacondaPackages: String, CaseIterable {
     case pycryptodome
     case pycurl
     case pydantic_core = "pydantic_core"
-    case pymunk
+    //case pymunk
     case pyzmq
     case pynacl
     case pyobjus
@@ -139,7 +139,7 @@ extension AnacondaPackages {
         case .pycryptodome: CiWheels.Pycryptodome.self
         case .pycurl: nil
         case .pydantic_core: CiWheels.Pydantic_core.self
-        case .pymunk: CiWheels.Pymunk.self
+        //case .pymunk: nil
         case .pyzmq: CiWheels.Pyzmq.self
         case .pynacl: nil
         case .pyobjus: nil
