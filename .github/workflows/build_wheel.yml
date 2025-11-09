@@ -55,7 +55,7 @@ jobs:
       - name: build wheels
         run: |
           mkdir -p output/wheels
-          ./WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }}
+          release/WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }}
           
       - run: ls output/wheels
 
