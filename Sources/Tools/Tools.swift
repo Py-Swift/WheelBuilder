@@ -7,6 +7,8 @@
 import PathKit
 import Foundation
 
+extension PathKit.Path: @unchecked Sendable {}
+
 public extension PathKit.Path {
     static let xcrun: Self = which("xcrun")
     static let xcodebuild: Self = which("xcodebuild")

@@ -14,7 +14,7 @@ import PipRepo
 @main
 struct WheelBuilderCLI: AsyncParsableCommand {
     
-    static var configuration: CommandConfiguration = .init(
+    static let configuration: CommandConfiguration = .init(
         subcommands: [
             Build.self,
             ActionBuild.self,
@@ -25,6 +25,18 @@ struct WheelBuilderCLI: AsyncParsableCommand {
     
 }
 
+fileprivate func py_versions() async throws -> [CachedPython] {
+    let pys = [
+        ("3.13", "b12"),
+        ("3.14", "b8")
+    ]
+    var output = [CachedPython]()
+    for (ver, build) in pys {
+        let cached = CachedPython()
+        try await cached.download(version: ver, build: build)
+    }
+    return output
+}
 
 
 extension WheelBuilderCLI {
@@ -58,10 +70,11 @@ extension WheelBuilderCLI {
             switch wheel {
             case let maturin as MaturinWheelProtocol.Type:
                 
-                let py_cache = CachedPython()
-                try await py_cache.download(version: "3.13", build: "b10")
-                try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, wheel_output: .init(output))
-                
+                for py_cache in try await py_versions() {
+                    //let py_cache = CachedPython()
+                    //try await py_cache.download(version: version, build: build)
+                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, wheel_output: .init(output))
+                }
             case let ciwheel as CiWheelProtocol.Type:
                 try await buildCiWheels(wheel: ciwheel, wheel_output: .init(output))
                 
@@ -182,5 +195,5 @@ public func compare_versions(target: IphoneosWheelSources.PackageData) async thr
         }
         return needs_build
     }
-    return false
+    return true
 }

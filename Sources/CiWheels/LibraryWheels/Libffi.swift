@@ -10,7 +10,7 @@ import Foundation
 @LibraryClass
 public final class Libffi: LibraryWheelProtocol {
     
-    static var default_version: String = "3.4.7-2"
+    static let default_version: String = "3.4.7-2"
 
     
     public var build_target: BuildTarget {

@@ -117,7 +117,7 @@ public extension MaturinWheelProtocol {
         
         
         env["PYTHONDIR"] = py_cache.python.string
-        env["PYO3_CROSS_PYTHON_VERSION"] = "3.13"
+        env["PYO3_CROSS_PYTHON_VERSION"] = py_cache.version
         
         env["SDKROOT"] = ios_sdkroot.string
         env["PYO3_CROSS_LIB_DIR"] = platform.py_maturin_framework(cached: py_cache).string

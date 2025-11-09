@@ -13,7 +13,7 @@ public final class Openssl: LibraryWheelProtocol {
  
     
     
-    static var default_version: String = "3.0.17-1"
+    static let default_version: String = "3.0.17-1"
     
     public var build_target: BuildTarget {
         let v = version ?? Self.default_version

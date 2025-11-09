@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -25,7 +25,7 @@ let package = Package(
         .package(url: "https://github.com/Py-Swift/PyPi_Api", branch: "master"),
         .package(url: "https://github.com/kylef/PathKit", .upToNextMajor(from: "1.0.1")),
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMajor(from: "1.6.1")),
-        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
+        .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "601.0.0"),
         .package(url: "https://github.com/apple/swift-algorithms.git", .upToNextMajor(from: "1.2.1")),
         .package(url: "https://github.com/ITzTravelInTime/SwiftCPUDetect.git", from: "1.3.0"),
     ],
@@ -37,6 +37,9 @@ let package = Package(
             dependencies: [
                 .byName(name: "PyPi_Api"),
                 "CiWheels"
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .target(
@@ -44,6 +47,9 @@ let package = Package(
             dependencies: [
                 .byName(name: "PyPi_Api"),
                 "PathKit"
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .target(
@@ -53,6 +59,9 @@ let package = Package(
                 "PlatformInfo",
                 "PathKit",
                 "Tools"
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .target(
@@ -68,6 +77,9 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                 .byName(name: "SwiftCPUDetect"),
                 
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .target(
@@ -76,6 +88,9 @@ let package = Package(
                 .byName(name: "PyPi_Api"),
                 "PlatformInfo",
                 "PathKit"
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .target(
@@ -85,6 +100,9 @@ let package = Package(
                 .product(name: "Algorithms", package: "swift-algorithms"),
                 "PlatformInfo",
                 "PathKit"
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .executableTarget(
@@ -95,6 +113,9 @@ let package = Package(
                 "WheelBuilder",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "PipRepo"
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .macro(
@@ -102,12 +123,18 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
+            ],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         
         .testTarget(
             name: "WheelBuilderTests",
-            dependencies: ["WheelBuilder"]
+            dependencies: ["WheelBuilder"],
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
         ),
     ]
 )

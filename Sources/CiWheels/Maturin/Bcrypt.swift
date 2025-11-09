@@ -6,6 +6,6 @@ import PlatformInfo
 import PathKit
 
 @WheelClass
-public final class Bcrypt: CiWheelProtocol {
+public final class Bcrypt: MaturinWheelProtocol {
 
 }

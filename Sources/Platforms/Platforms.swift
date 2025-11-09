@@ -9,8 +9,9 @@ import PathKit
 import Tools
 import Foundation
 
+extension Path: @unchecked Sendable {}
 
-public class Iphoneos: PlatformProtocol {
+public class Iphoneos: PlatformProtocol, @unchecked Sendable {
     public static let sdk: SDK = .iphoneos
     
     public static let arch: Arch = .arm64

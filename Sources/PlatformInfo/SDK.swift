@@ -5,7 +5,7 @@
 //  Created by CodeBuilder on 07/10/2025.
 //
 
-public enum SDK: String, CustomStringConvertible {
+public enum SDK: String, CustomStringConvertible, @unchecked Sendable {
     case iphoneos
     case iphonesimulator
     case macos
