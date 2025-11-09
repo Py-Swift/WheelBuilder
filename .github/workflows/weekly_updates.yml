@@ -32,16 +32,28 @@ jobs:
       #  with:
       #    python-version: '3.14.rc3'
 
+      - name: install wheelbuilder
+        run: |
+          wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/latest/download/WheelBuilderCLI.tar.gz"
+          tar -xzvf WheelBuilderCLI.tar.gz -C ./
+
       - name: install cibuildwheel
         run: pip3.13 install cibuildwheel
 
       - name: install maturin
         run: pip3.13 install maturin
+
+      - name: install rust ios targets
+        run: |
+          rustup target add aarch64-apple-ios
+          rustup target add aarch64-apple-ios-sim
+          rustup target add x86_64-apple-ios
         
       - name: build wheels
         run: |
-          mkdir -p output/wheels
-          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
+          #mkdir -p output/wheels
+          #swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
+          release/WheelBuilderCLI action-build $PWD/output/wheels --checks
 
       - id: needs_upload
         run: |
