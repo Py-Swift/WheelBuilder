@@ -57,6 +57,10 @@ extension WheelBuilderCLI {
                                 try await self.build(wheel: wheel)
                             }
                         }
+                    } else {
+                        if let wheel = pack.wheel_package {
+                            try await self.build(wheel: wheel)
+                        }
                     }
                 }
             } else {
