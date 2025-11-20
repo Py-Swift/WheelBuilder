@@ -35,6 +35,11 @@ jobs:
       #  with:
       #    python-version: '3.14.rc3'
 
+      - name: install wheelbuilder
+        run: |
+          wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/latest/download/WheelBuilderCLI.tar.gz"
+          tar -xzvf WheelBuilderCLI.tar.gz -C ./
+
       - name: install cibuildwheel
         run: pip3.13 install cibuildwheel
 
@@ -46,16 +51,11 @@ jobs:
           rustup target add aarch64-apple-ios
           rustup target add aarch64-apple-ios-sim
           rustup target add x86_64-apple-ios
-      
-      - name: build WheelBuilderCLI
-        run: |
-          mkdir -p output/wheels
-          swift build -c release WheelBuilderCLI
 
       - name: build wheels
         run: |
           mkdir -p output/wheels
-          swift run -c release WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }}
+          release/WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }}
           
       - run: ls output/wheels
 
