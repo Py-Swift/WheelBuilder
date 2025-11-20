@@ -13,7 +13,7 @@ public class RepoFolder {
     
     public init(root: Path) throws {
         self.root = root
-        let whls = try root.children().filter(\.is_whl).sorted()
+        let whls = try root.children().filter(\.whl_or_gz).sorted()
         
         let groups = whls.chunked(on: \.whl_name)
         for group in groups {
@@ -103,6 +103,11 @@ extension Path {
     }
     
     var is_whl: Bool { self.extension == "whl" }
+    var is_gz: Bool { self.extension == "gz" }
+    
+    var whl_or_gz: Bool {
+        is_whl || is_gz
+    }
     
     var whl_name: String {
         lastComponent.split(whereSeparator: {$0 == "-"}).first!.lowercased()
