@@ -5,6 +5,7 @@
 import PlatformInfo
 import PathKit
 import Foundation
+import Tools
 
 @WheelClass(build_target: .pypi("opencv-python"))
 public final class Opencv: CiWheelProtocol {
@@ -24,5 +25,13 @@ public final class Opencv: CiWheelProtocol {
         [
             "https://raw.githubusercontent.com/Py-Swift/LibraryPatches/refs/heads/master/opencv/opencv-python-ios.patch"
         ]
+    }
+
+    public func apply_patches(target: Path, working_dir: Path) async throws {
+        for url in patches() {
+            let patch_file = try await downloadURL(url: url, to: working_dir)
+            
+            try await git_apply(file: patch_file, target: target)
+        }
     }
 }

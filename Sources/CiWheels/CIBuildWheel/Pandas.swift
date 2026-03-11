@@ -5,6 +5,7 @@
 import PlatformInfo
 import PathKit
 import Foundation
+import Tools
 
 @WheelClass
 public final class Pandas: CiWheelProtocol {
@@ -35,5 +36,13 @@ public final class Pandas: CiWheelProtocol {
         [
             "https://raw.githubusercontent.com/Py-Swift/LibraryPatches/refs/heads/master/pandas/pandas-ios.patch"
         ]
+    }
+
+    public func apply_patches(target: Path, working_dir: Path) async throws {
+        for url in patches() {
+            let patch_file = try await downloadURL(url: url, to: working_dir)
+            
+            try await git_apply(file: patch_file, target: target)
+        }
     }
 }

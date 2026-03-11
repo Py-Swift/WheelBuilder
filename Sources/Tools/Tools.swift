@@ -18,6 +18,7 @@ public extension PathKit.Path {
     static let tar: Self = which("tar")
     static let maturin: Self = which("maturin")
     static let patch: Self = which("patch")
+    static let git: Self = which("git")
     //static let cargo: Self = which("cargo")
 }
 
@@ -103,6 +104,19 @@ public func patch(content: String, fn: String, target: Path) async throws {
         try patch_file.write(content)
         try await patch(file: patch_file, target: target)
     }
+}
+
+public func git_apply(file: Path, target: Path) async throws {
+    let proc = Process()
+    
+    proc.executablePath = .git
+    
+    proc.arguments = [
+        "apply", "--directory=\(target.string)", file.string
+    ]
+    
+    try proc.run()
+    proc.waitUntilExit()
 }
 
 public func download_python(version: String, build: String, to folder: Path) async throws {
