@@ -18,6 +18,7 @@ public enum AnacondaPackages: String, CaseIterable {
     case backports_zoneinfo = "backports-zoneinfo"
     case bcrypt
     case bitarray
+    case blosc2
     case brotli
     case bzip2
     case cffi
@@ -98,6 +99,7 @@ extension AnacondaPackages {
         case .backports_zoneinfo: nil
         case .bcrypt: CiWheels.Bcrypt.self
         case .bitarray: CiWheels.Bitarray.self
+        case .blosc2: CiWheels.Blosc2.self
         case .brotli: nil
         case .bzip2: nil
         case .cffi: CiWheels.Cffi.self
