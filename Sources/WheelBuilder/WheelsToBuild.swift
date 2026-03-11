@@ -51,6 +51,7 @@ public enum AnacondaPackages: String, CaseIterable {
     case ninja
     case numpy
     case openssl
+    case opencv_python = "opencv-python"
     case orjson
     case pandas
     case pendulum
@@ -61,9 +62,9 @@ public enum AnacondaPackages: String, CaseIterable {
     case pycurl
     case pydantic_core = "pydantic_core"
     //case pymunk
-    case pyzmq
+   // case pyzmq
     case pynacl
-    case pyobjus
+    //case pyobjus
     case pysha3
     case pywavelets
     case pyzbar
@@ -130,8 +131,9 @@ extension AnacondaPackages {
         case .ninja: nil
         case .numpy: CiWheels.Numpy.self
         case .openssl: nil
+        case .opencv_python: CiWheels.Opencv.self
         case .orjson: CiWheels.Orjson.self
-        case .pandas: nil//CiWheels.Pandas.self
+        case .pandas: CiWheels.Pandas.self
         case .pendulum: CiWheels.Pendulum.self
 //        case .pillow: nil
         case .preshed: nil
@@ -140,9 +142,9 @@ extension AnacondaPackages {
         case .pycurl: nil
         case .pydantic_core: CiWheels.Pydantic_core.self
         //case .pymunk: nil
-        case .pyzmq: CiWheels.Pyzmq.self
+        //case .pyzmq: CiWheels.Pyzmq.self
         case .pynacl: nil
-        case .pyobjus: nil
+        //case .pyobjus: nil
         case .pysha3: nil
         case .pywavelets: nil
         case .pyzbar: nil

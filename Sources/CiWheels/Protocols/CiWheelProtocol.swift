@@ -4,6 +4,32 @@ import Tools
 import PathKit
 
 
+public class CIBuildWheelEnvironment {
+    
+    var xbuild_tools_ios: [String] = []
+    var test_commmand_ios: String? = ""
+    
+    
+    enum EnvironmentVariable: CustomStringConvertible {
+        case string(String)
+        case array([EnvironmentVariable])
+        case dict([String:EnvironmentVariable])
+        
+        
+        var description: String {
+            switch self {
+                case .string(let string):
+                    string
+                case .array(let array):
+                    array.map(\.description).joined(separator: " ")
+                case .dict(let dictionary):
+                    dictionary.map({"\($0.key)=\"\($0.value)\""}).joined(separator: " ")
+            }
+        }
+    }
+    
+    
+}
 public protocol CiWheelProtocol: WheelProtocol {
     
     init(version: String?, platform: any PlatformProtocol, root: Path)
@@ -12,6 +38,10 @@ public protocol CiWheelProtocol: WheelProtocol {
     
     func build_wheel(target: Path, platform: any PlatformProtocol, output: Path) async throws
     
+    
+}
+
+extension CiWheelProtocol {
     
 }
 
