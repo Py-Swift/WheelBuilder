@@ -12,7 +12,7 @@ public final class Pandas: CiWheelProtocol {
     
     public func env() throws -> [String : String] {
         var env = base_env()
-        env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja cython pkg-config"
+        env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
 
         env["CIBW_TEST_COMMAND_IOS"] = ""
         //env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"

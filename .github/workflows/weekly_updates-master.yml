@@ -1,0 +1,113 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Weekly Anaconda Wheels Update (Master)
+
+# Controls when the workflow will run
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * 0"
+    
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    name: Build iOS Wheels
+    # The type of runner that the job will run on
+    #runs-on: self-hosted
+    runs-on: macos-15
+    permissions:
+        contents: write
+    outputs:
+      needs_upload: ${{ steps.needs_upload.outputs.var }}
+    
+    steps:
+      - uses: actions/checkout@v5
+      
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.7'
+      #- uses: actions/setup-python@v6
+      #  with:
+      #    python-version: '3.14.rc3'
+
+      # - name: install wheelbuilder
+      #   run: |
+      #     wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/latest/download/WheelBuilderCLI.tar.gz"
+      #     tar -xzvf WheelBuilderCLI.tar.gz -C ./
+
+      - name: install cibuildwheel
+        run: pip3.13 install cibuildwheel
+
+      - name: install maturin
+        run: pip3.13 install maturin
+
+      - name: install rust ios targets
+        run: |
+          rustup target add aarch64-apple-ios
+          rustup target add aarch64-apple-ios-sim
+          rustup target add x86_64-apple-ios
+        
+      - name: build wheels
+        run: |
+          #mkdir -p output/wheels
+          swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
+          #release/WheelBuilderCLI action-build $PWD/output/wheels --checks
+
+      - id: needs_upload
+        run: |
+          ls output/wheels
+          if find output/wheels -mindepth 1 -maxdepth 1 | read; then
+            echo "var=true" >> $GITHUB_OUTPUT
+          else
+            echo "var=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: display needs_upload
+        run: |
+          echo "${{ steps.needs_upload.outputs.var }}"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.needs_upload.outputs.var == 'true'
+        with:
+          name: wheels-output
+          path: ./output
+
+  anaconda_upload:
+    name: Upload to Anaconda
+    needs: [build]
+    if: needs.build.outputs.needs_upload == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheels-output
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13.7'
+
+      - name: install anaconda client
+        run: |
+          pip install anaconda-client anaconda-auth
+          
+      - name: publish-to-anaconda
+        continue-on-error: true
+        run: |
+          anaconda login \
+              --at anaconda.org \
+              --username ${{ secrets.ANACONDA_USER }} \
+              --password "${{ secrets.ANACONDA_PASS }}"
+          cd wheels
+          for FILE in *
+          do
+            anaconda upload --force $FILE
+          done
+      - name: Anaconda logout
+        run: anaconda logout --at anaconda.org
+      
+
+          
