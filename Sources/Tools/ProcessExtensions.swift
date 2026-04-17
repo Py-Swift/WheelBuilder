@@ -159,6 +159,41 @@ public func pip_download(name: String, version: String?, output: Path) throws ->
     }
 }
 
+public func url_download(url urlString: String, name: String, output: Path) throws -> Path? {
+    guard let url = URL(string: urlString) else {
+        throw URLError(.badURL)
+    }
+    let filename = url.lastPathComponent.isEmpty ? "\(name).tar.gz" : url.lastPathComponent
+    let destination = output + filename
+    print("url_download", urlString, "->", destination.string, "name: \(name)")
+
+    let semaphore = DispatchSemaphore(value: 0)
+    var downloadError: Error?
+    URLSession.shared.dataTask(with: url) { data, _, error in
+        defer { semaphore.signal() }
+        if let error {
+            downloadError = error
+            return
+        }
+        do {
+            try data?.write(to: destination.url)
+        } catch {
+            downloadError = error
+        }
+    }.resume()
+    semaphore.wait()
+
+    if let downloadError { throw downloadError }
+
+    try output.children().filter({ $0.extension == "gz" }).forEach { tar in
+        try untar(tar: tar, destination: output)
+        try tar.delete()
+    }
+    return try output.children().first { path in
+        return path.isDirectory && (path.lastComponent.contains(name))
+    }
+}
+
 public func beeware_pip_download(name: String, output: Path) throws -> Path? {
     try Process.pip_download(name: name, output: output)
     

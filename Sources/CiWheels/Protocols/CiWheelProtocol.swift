@@ -38,7 +38,7 @@ public protocol CiWheelProtocol: WheelProtocol {
     
     func build_wheel(target: Path, platform: any PlatformProtocol, output: Path) async throws
     
-    
+    func build_wheel(working_dir: Path, version: String?, wheels_dir: Path) async throws 
 }
 
 extension CiWheelProtocol {
@@ -116,10 +116,11 @@ public extension CiWheelProtocol {
     }
     
     func build_wheel(working_dir: Path, version: String? = nil, wheels_dir: Path) async throws {
-        try await pre_build(target: working_dir)
+        
         if try await _build_wheel(output: working_dir) { return }
         switch build_target {
         case .local(let path):
+            try await pre_build(target: path)
             try await Process.cibuildwheel(
                 target: path,
                 platform: platform,
@@ -128,7 +129,7 @@ public extension CiWheelProtocol {
             )
         case .pypi(let pypi):
             if let pypi_folder = try pip_download(name: pypi, version: version, output: working_dir) {
-                
+                try await pre_build(target: pypi_folder)
                 try await apply_patches(target: pypi_folder, working_dir: working_dir)
                 
                 try await Process.cibuildwheel(
@@ -140,8 +141,19 @@ public extension CiWheelProtocol {
                 try? pypi_folder.delete()
                 
             }
-        case .url(_):
-            break
+        case .url(let url):
+            if let url_folder = try url_download(url: url.absoluteString, name: url.lastPathComponent, output: wheels_dir) {
+                try await pre_build(target: url_folder)
+                try await apply_patches(target: url_folder, working_dir: working_dir)
+                print(Self.self, "cibuildwheel", url_folder)
+                try await Process.cibuildwheel(
+                    target: url_folder,
+                    platform: platform,
+                    env: env(),
+                    output: wheels_dir
+                )
+                try? url_folder.delete()
+            }
         }
         
         

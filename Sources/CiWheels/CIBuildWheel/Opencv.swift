@@ -7,7 +7,7 @@ import PathKit
 import Foundation
 import Tools
 
-@WheelClass(build_target: .pypi("opencv-python"))
+@WheelClass(build_target: .url("https://github.com/opencv/opencv-python/archive/refs/tags/92.tar.gz"))
 public final class Opencv: CiWheelProtocol {
     
     public func env() throws -> [String : String] {
@@ -23,7 +23,7 @@ public final class Opencv: CiWheelProtocol {
     
     public func patches() -> [URL] {
         [
-            "https://raw.githubusercontent.com/Py-Swift/LibraryPatches/refs/heads/master/opencv/opencv-python-ios.patch"
+            "https://raw.githubusercontent.com/Py-Swift/LibraryPatches/refs/heads/master/opencv/opencv-python-ios-92.patch"
         ]
     }
 
@@ -32,6 +32,34 @@ public final class Opencv: CiWheelProtocol {
             let patch_file = try await downloadURL(url: url, to: working_dir)
             
             try await git_apply(file: patch_file, target: target)
+        }
+    }
+    
+    public func build_wheel(working_dir: Path, version: String?, wheels_dir: Path) async throws {
+        let tag = version ?? "92"
+        let cloneDir = wheels_dir + "opencv-python-\(tag)"
+        let proc = Process()
+        proc.executablePath = .git
+        let arguments: [String] = [
+            "clone", "--recursive", "--branch", tag, "--depth", "1",
+            "https://github.com/opencv/opencv-python.git",
+            cloneDir.string
+        ]
+        print("git", arguments)
+        proc.arguments = arguments
+        try proc.run()
+        proc.waitUntilExit()
+
+        if cloneDir.exists {
+            try await apply_patches(target: cloneDir, working_dir: working_dir)
+            print(Self.self, "cibuildwheel", cloneDir)
+            try await Process.cibuildwheel(
+                target: cloneDir,
+                platform: platform,
+                env: env(),
+                output: wheels_dir
+            )
+            try? cloneDir.delete()
         }
     }
 }
