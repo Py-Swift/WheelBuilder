@@ -15,6 +15,7 @@ public final class Blosc2: CiWheelProtocol {
         env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja git"
         env["CIBW_BEFORE_BUILD_IOS"] = [
             "pip install --only-binary=numpy 'scikit-build-core>=0.11.0' 'cython>=3' 'numpy>=2.1'",
+            "python -c \"import sys,numpy; open('/tmp/blosc2_cmake_init.cmake','w').write('set(Python_EXECUTABLE \\\"'+sys.executable+'\\\" CACHE FILEPATH \\\"\\\" FORCE)\\nset(Python_NumPy_INCLUDE_DIRS \\\"'+numpy.get_include()+'\\\" CACHE PATH \\\"\\\" FORCE)\\n')\"",
             "MINIEXPR_SRC=/tmp/blosc2_ios_miniexpr",
             "rm -rf $MINIEXPR_SRC",
             "git clone --depth 1 https://github.com/Blosc/miniexpr.git $MINIEXPR_SRC",
@@ -23,7 +24,7 @@ public final class Blosc2: CiWheelProtocol {
         ].joined(separator: " && ")
         env["CIBW_ENVIRONMENT_IOS"] = [
             "PIP_EXTRA_INDEX_URL=\"https://pypi.anaconda.org/pyswift/simple\"",
-            "SKBUILD_CMAKE_ARGS=\"-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_ios_miniexpr\""
+            "SKBUILD_CMAKE_ARGS=\"-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_ios_miniexpr -C /tmp/blosc2_cmake_init.cmake\""
         ].joined(separator: " ")
         env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
         return env
