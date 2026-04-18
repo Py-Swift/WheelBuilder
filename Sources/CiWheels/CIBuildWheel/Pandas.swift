@@ -17,6 +17,7 @@ public final class Pandas: CiWheelProtocol {
         env["CIBW_TEST_COMMAND_IOS"] = ""
         //env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
         //env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
+        //env["CIBW_BEFORE_BUILD_IOS"] = ""
         env["CIBW_BEFORE_BUILD_IOS"] = "env -u SDKROOT -u IPHONEOS_DEPLOYMENT_TARGET pip install numpy meson-python meson Cython"
 //        env["CIBW_BEFORE_BUILD_IOS"] = [
 //            "env -u SDKROOT -u IPHONEOS_DEPLOYMENT_TARGET pip install numpy meson-python meson ninja Cython",

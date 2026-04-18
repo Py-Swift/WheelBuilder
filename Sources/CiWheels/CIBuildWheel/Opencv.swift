@@ -15,7 +15,8 @@ public final class Opencv: CiWheelProtocol {
         env["CIBW_ENVIRONMENT_IOS"] = [
             "PIP_EXTRA_INDEX_URL=\"https://pypi.anaconda.org/pyswift/simple\"",
             "CI_BUILD=\"1\"",
-            "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\""
+            "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
+            "CMAKE_ARGS=\"-DCMAKE_OSX_SYSROOT=$(xcrun --sdk \(platform.sdk) --show-sdk-path)\""
         ].joined(separator: " ")
         env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
         return env
