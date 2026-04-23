@@ -81,6 +81,9 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.platform }}" = "android" ]; then
             export ANDROID_API_LEVEL=24
+            # Use the NDK installed by setup-ndk so cibuildwheel picks up the
+            # correct version regardless of what the pre-installed SDK NDK provides.
+            export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
           fi
           mkdir -p output/wheels
           swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform ${{ github.event.inputs.platform }}

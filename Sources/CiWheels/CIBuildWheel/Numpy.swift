@@ -44,13 +44,24 @@ public final class Numpy: CiWheelProtocol {
         env["CIBW_BEFORE_BUILD"] = ""
         env["CIBW_TEST_SKIP"] = "*"
         if platform.get_sdk() == .android {
-            env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
+            // NPY_DISABLE_SVML=1: avoid SVML which is not available on Android.
+            // LDFLAGS: explicitly add -lpython<ver> so the linker resolves Python symbols.
+            // The Android Python's python*.pc Libs: field may contain "$(BLDLIBRARY)" (a
+            // Makefile variable that pkg-config passes through unexpanded) or may simply
+            // omit any -l flag entirely.  Either way meson drops the token and the linker
+            // never receives -lpython3.xx, causing undefined-symbol errors under
+            // -Wl,--no-undefined.  Belt-and-suspenders: add -lpython<ver> to LDFLAGS
+            // directly so it is always present regardless of what the .pc file contains.
+            env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1 LDFLAGS=\"$LDFLAGS -lpython$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')\""
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=/tmp/numpy-android-meson-cross.ini setup-args=-Dblas=none setup-args=-Dlapack=none"
-            // The Android Python's python*.pc files contain a literal "$(BLDLIBRARY)" which
-            // pkg-config passes unchanged to the linker, causing clang to fail looking for
-            // a file named "$(BLDLIBRARY)". Patch the .pc files before meson reads them.
-            // Find the Python prefix from CFLAGS (contains -I/.../python/prefix/include).
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "echo \"DBG CMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE\"; PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; echo \"DBG PYPREFIX=$PYPREFIX\"; ls \"$PYPREFIX/lib/pkgconfig/\" 2>&1 || echo \"DBG: pkgconfig dir not found\"; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; echo \"DBG: patching $f\"; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; echo \"DBG: patched -lpython${VER}\"; done"
+            // Also patch the Python .pc files so that pkg-config itself returns correct
+            // link flags (belt-and-suspenders: the LDFLAGS above already covers the gap).
+            // Use $PKG_CONFIG_LIBDIR which cibuildwheel sets directly to the pkgconfig dir.
+            // Steps:
+            //   1. Replace the unexpanded make variable $(BLDLIBRARY) with -lpython<ver>.
+            //   2. If the Libs: line still has no -lpython entry (e.g. the field was simply
+            //      absent), append -lpython<ver> to the Libs: line.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "for f in \"$PKG_CONFIG_LIBDIR/python-3\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); echo \"DBG: patching $f (VER=${VER})\"; grep 'Libs:' \"$f\" || true; sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; grep -q -- -lpython \"$f\" || sed -i '' \"/^Libs:/ s/$/ -lpython${VER}/\" \"$f\"; echo \"DBG: after patch:\"; grep 'Libs:' \"$f\" || true; done"
         }
         return env
     }
