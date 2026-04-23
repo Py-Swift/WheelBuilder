@@ -37,6 +37,9 @@ jobs:
           wget -O WheelBuilderCLI.tar.gz "https://github.com/Py-Swift/WheelBuilder/releases/latest/download/WheelBuilderCLI.tar.gz"
           tar -xzvf WheelBuilderCLI.tar.gz -C ./
 
+      - name: install pkg-config
+        run: brew install pkg-config
+
       - name: install cibuildwheel
         run: pip3.13 install cibuildwheel
 
