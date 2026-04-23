@@ -48,9 +48,19 @@ jobs:
           rustup target add aarch64-apple-ios
           rustup target add aarch64-apple-ios-sim
           rustup target add x86_64-apple-ios
+          rustup target add aarch64-linux-android
+          rustup target add x86_64-linux-android
+
+      - name: install android ndk
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
         
       - name: build wheels
         run: |
+          export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
+          export ANDROID_API_LEVEL=24
           #mkdir -p output/wheels
           #swift run -c release WheelBuilderCLI action-build $PWD/output/wheels --checks
           release/WheelBuilderCLI action-build $PWD/output/wheels --checks
