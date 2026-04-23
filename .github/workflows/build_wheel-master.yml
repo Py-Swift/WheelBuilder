@@ -59,11 +59,14 @@ jobs:
           rustup target add x86_64-linux-android
 
       - name: install android ndk
-        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.3.13750724"
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
 
       - name: build wheels
         run: |
-          export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724
+          export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
           export ANDROID_API_LEVEL=24
           mkdir -p output/wheels
           swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform ${{ github.event.inputs.platform }}
