@@ -2,7 +2,7 @@ import Foundation
 import PlatformInfo
 import Tools
 import PathKit
-
+import Platforms
 
 public class CIBuildWheelEnvironment {
     
@@ -38,7 +38,11 @@ public protocol CiWheelProtocol: WheelProtocol {
     
     func build_wheel(target: Path, platform: any PlatformProtocol, output: Path) async throws
     
-    func build_wheel(working_dir: Path, version: String?, wheels_dir: Path) async throws 
+    func build_wheel(working_dir: Path, version: String?, wheels_dir: Path) async throws
+    
+    
+    
+    
 }
 
 extension CiWheelProtocol {
@@ -51,6 +55,8 @@ public extension CiWheelProtocol {
     static func new(version: String?, platform: any PlatformProtocol, root: Path) -> Self {
         .init(version: version, platform: platform, root: root)
     }
+    
+    
     
     func dependencies_libraries() -> [any LibraryWheelProtocol.Type] {
         []
@@ -92,7 +98,8 @@ public extension CiWheelProtocol {
     func base_env() -> [String:String] {
         [
             "CFLAGS": get_cflags().description,
-            "LDFLAGS": get_ldflags().description
+            "LDFLAGS": get_ldflags().description,
+            "ANDROID_API_LEVEL": Process.android_api_level
         ] + processInfo.environment
     }
     
@@ -103,6 +110,8 @@ public extension CiWheelProtocol {
     func ndk_root() throws -> Path {
             try Process.get_android_ndk()
         }
+    
+    
 }
 
 public extension CiWheelProtocol {
