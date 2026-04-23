@@ -9,6 +9,7 @@ public enum SDK: String, CustomStringConvertible, @unchecked Sendable {
     case iphoneos
     case iphonesimulator
     case macos
+    case android
     
     public var description: String { rawValue }
     

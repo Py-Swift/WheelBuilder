@@ -99,6 +99,10 @@ public extension CiWheelProtocol {
     func env() throws -> [String : String] {
         base_env()
     }
+    
+    func ndk_root() throws -> Path {
+            try Process.get_android_ndk()
+        }
 }
 
 public extension CiWheelProtocol {

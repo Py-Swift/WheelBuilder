@@ -13,7 +13,10 @@ public final class Matplotlib: CiWheelProtocol {
     public func env() throws -> [String : String] {
         var env = base_env()
         env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
-        //env["CIBW_TEST_SKIP"] = "*"
+        if platform.get_sdk() == .android {
+            // p4a: need_stl_shared=True, CXXFLAGS += -Wno-c++11-narrowing
+            env["CIBW_ENVIRONMENT_ANDROID"] = "CXXFLAGS=\"$CXXFLAGS -Wno-c++11-narrowing\" LDFLAGS=\"$LDFLAGS -lc++_shared\""
+        }
         return env
     }
 

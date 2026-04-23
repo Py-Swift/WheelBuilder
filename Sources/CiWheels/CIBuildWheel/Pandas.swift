@@ -13,21 +13,8 @@ public final class Pandas: CiWheelProtocol {
     public func env() throws -> [String : String] {
         var env = base_env()
         env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
-
         env["CIBW_TEST_COMMAND_IOS"] = ""
-        //env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
-        //env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
-        //env["CIBW_BEFORE_BUILD_IOS"] = ""
         env["CIBW_BEFORE_BUILD_IOS"] = "env -u SDKROOT -u IPHONEOS_DEPLOYMENT_TARGET pip install numpy meson-python meson Cython"
-//        env["CIBW_BEFORE_BUILD_IOS"] = [
-//            "env -u SDKROOT -u IPHONEOS_DEPLOYMENT_TARGET pip install numpy meson-python meson ninja Cython",
-//            "mkdir -p ~/.local/share/meson/cross ~/.local/share/meson/native",
-//            "cp {package}/ios-meson-cross.ini ~/.local/share/meson/cross/",
-//            "cp {package}/ios-meson-native.ini ~/.local/share/meson/native/",
-//            "cp {package}/ios-native-cc.sh {package}/ios-native-cxx.sh /tmp/",
-//            "chmod +x /tmp/ios-native-cc.sh /tmp/ios-native-cxx.sh",
-//            // "PACKAGE_DIR={package} bash {package}/scripts/cibw_before_build.sh" // only concatenates license files
-//        ].joined(separator: " && ")
         env["CIBW_CONFIG_SETTINGS_IOS"] = "setup-args=--cross-file=ios-meson-cross.ini setup-args=--native-file=ios-meson-native.ini"
         env["CIBW_ENVIRONMENT_IOS"] = [
             "PIP_EXTRA_INDEX_URL=\"https://pypi.anaconda.org/pyswift/simple\"",
@@ -35,6 +22,10 @@ public final class Pandas: CiWheelProtocol {
             "CFLAGS=\"-g0\"",
             "LDFLAGS=\"\""
         ].joined(separator: " ")
+        if platform.get_sdk() == .android {
+            // p4a: LDFLAGS += -landroid -lc++_shared (for symbols like _ZTVSt12length_error)
+            env["CIBW_ENVIRONMENT_ANDROID"] = "LDFLAGS=\"$LDFLAGS -landroid -lc++_shared\""
+        }
         return env
     }
     

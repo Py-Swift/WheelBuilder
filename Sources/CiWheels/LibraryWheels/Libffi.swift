@@ -12,15 +12,25 @@ public final class Libffi: LibraryWheelProtocol {
     
     static let default_version: String = "3.4.7-2"
 
-    
     public var build_target: BuildTarget {
         let v = version ?? Self.default_version
-        let sdk = platform.get_sdk()
-        let arch = platform.get_arch()
-        return .url(
-            //"https://github.com/libffi/libffi/releases/download/v\(v)/libffi-\(v).tar.gz"
-            "https://github.com/beeware/cpython-apple-source-deps/releases/download/libFFI-\(v)/libffi-\(v)-\(sdk).\(arch).tar.gz"
-        )
+        switch platform.get_sdk() {
+        case .android:
+            let abi: String
+            switch platform.get_arch() {
+            case .arm64:  abi = "arm64-v8a"
+            case .x86_64: abi = "x86_64"
+            }
+            return .url(
+                "https://github.com/beeware/cpython-android-source-deps/releases/download/libFFI-\(v)/libffi-\(v)-android-\(abi).tar.gz"
+            )
+        default:
+            let sdk = platform.get_sdk()
+            let arch = platform.get_arch()
+            return .url(
+                "https://github.com/beeware/cpython-apple-source-deps/releases/download/libFFI-\(v)/libffi-\(v)-\(sdk).\(arch).tar.gz"
+            )
+        }
     }
 
 

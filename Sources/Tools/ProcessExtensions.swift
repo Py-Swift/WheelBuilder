@@ -57,7 +57,37 @@ extension Process {
     }
     
     public static func get_sdk(sdk: SDK) throws -> Path {
-        try xcrun(args: "--show-sdk-path", "--sdk", sdk.description)
+        switch sdk {
+        case .android:
+            if let sysroot = ProcessInfo.processInfo.environment["ANDROID_SYSROOT"] {
+                return Path(sysroot)
+            }
+            let host = ProcessInfo.processInfo.environment["ANDROID_NDK_HOST"] ?? "darwin-x86_64"
+            return try get_android_ndk() + "toolchains/llvm/prebuilt/\(host)/sysroot"
+        default:
+            return try xcrun(args: "--show-sdk-path", "--sdk", sdk.description)
+        }
+    }
+    
+    public static func get_android_ndk() throws -> Path {
+        guard let ndkHome = ProcessInfo.processInfo.environment["ANDROID_NDK_HOME"] else {
+            fatalError("ANDROID_NDK_HOME environment variable is not set")
+        }
+        let base = Path(ndkHome)
+        if (base + "toolchains").exists { return base }
+        let ndkDir = base + "ndk"
+        if ndkDir.exists, let latest = try? ndkDir.children().filter(\.isDirectory).sorted(by: { $0.lastComponent > $1.lastComponent }).first {
+            return latest
+        }
+        fatalError("ANDROID_NDK_HOME=\(ndkHome) is not an NDK root. Point it to e.g. .../ndk/27.3.13750724")
+    }
+    
+    public static var android_api_level: String {
+        ProcessInfo.processInfo.environment["ANDROID_API_LEVEL"] ?? "24"
+    }
+    
+    public static var android_ndk_host: String {
+        ProcessInfo.processInfo.environment["ANDROID_NDK_HOST"] ?? "darwin-x86_64"
     }
     
     public static func get_macos_sdk() throws -> Path {
@@ -68,19 +98,13 @@ extension Process {
         let proc = Process()
         proc.executablePath = .cibuildwheel
         proc.arguments = [
-            //Path.cibuildwheel.string,
             target.string,
             "--platform", platform.ci_platform,
             "--archs", platform.ci_archs,
             "--output-dir", output.string,
-            
         ]
-        
-        //proc.currentDirectoryURL = target?.url
         proc.environment = env
-        //fatalError()
         try proc.run()
-        
         proc.waitUntilExit()
     }
     
@@ -96,12 +120,8 @@ extension Process {
         ]
         print("cibuildwheel", arguments)
         proc.arguments = arguments
-        //proc.currentDirectoryURL = target?.url
-        
         proc.environment = env
-        
         try proc.run()
-        
         proc.waitUntilExit()
     }
     

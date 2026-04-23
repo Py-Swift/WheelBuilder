@@ -188,4 +188,12 @@ public final class CachedPython {
     public var x86_64_simulator: Path {
         python + "ios-x86_64-simulator"
     }
+    
+    public var arm64_android: Path {
+        python + "android-arm64-v8a"
+    }
+    
+    public var x86_64_android: Path {
+        python + "android-x86_64"
+    }
 }

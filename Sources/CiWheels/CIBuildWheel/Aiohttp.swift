@@ -10,22 +10,12 @@ import Foundation
 @WheelClass
 public final class Aiohttp: CiWheelProtocol {
     
-//    public static let name: String = "aiohttp"
-//    
-//    public var version: String?
-//        
-    //public let build_target: BuildTarget = .pypi("aiohttp")
-//
-//    public var platform: any PlatformProtocol
-//    
-//    public var root: Path
-//    
-//    public init(version: String? = nil, platform: any PlatformProtocol, root: Path) {
-//        self.version = version
-//        self.platform = platform
-//        self.root = root
-//    }
-//   
-    
+    public func env() throws -> [String: String] {
+        var env = base_env()
+        if platform.get_sdk() == .android {
+            env["CIBW_ENVIRONMENT_ANDROID"] = "LDFLAGS=\"$LDFLAGS -lc++_shared\""
+        }
+        return env
+    }
 }
 

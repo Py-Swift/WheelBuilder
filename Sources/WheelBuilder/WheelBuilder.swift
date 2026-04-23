@@ -9,13 +9,38 @@ import PlatformInfo
 import Platforms
 import SwiftCPUDetect
 
-public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = nil, wheel_output: Path) async throws {
-    try await withTemp { working_dir in
-        let platforms: [any PlatformProtocol] = [
+public enum BuildPlatform: String, CaseIterable {
+    case ios
+    case android
+}
+
+func resolvePlatforms(_ filter: BuildPlatform?) throws -> [any PlatformProtocol] {
+    switch filter {
+    case .ios:
+        return [
             try Platforms.Iphoneos(),
             try Platforms.IphoneSimulator_arm64(),
-            try Platforms.IphoneSimulator_x86_64()
+            try Platforms.IphoneSimulator_x86_64(),
         ]
+    case .android:
+        return [
+            try Platforms.Android_arm64(),
+            try Platforms.Android_x86_64(),
+        ]
+    case nil:
+        return [
+            try Platforms.Iphoneos(),
+            try Platforms.IphoneSimulator_arm64(),
+            try Platforms.IphoneSimulator_x86_64(),
+            try Platforms.Android_arm64(),
+            try Platforms.Android_x86_64(),
+        ]
+    }
+}
+
+public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = nil, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
+    try await withTemp { working_dir in
+        let platforms = try resolvePlatforms(filter)
         
         for platform in platforms {
             let wheel = wheel.new(version: nil, platform: platform, root: working_dir)
@@ -25,19 +50,16 @@ public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = ni
                 try await lib.build_library_platform(working_dir: working_dir)
                 try await lib.post_build_library(working_dir: working_dir)
             }
+
             try await wheel.build_wheel(working_dir: working_dir, version: version, wheels_dir: wheel_output)
         }
     }
 }
 
 
-public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: String? = nil, py_cache: CachedPython, wheel_output: Path) async throws {
+public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: String? = nil, py_cache: CachedPython, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
-        let platforms: [any PlatformProtocol] = [
-            try Platforms.Iphoneos(),
-            try Platforms.IphoneSimulator_arm64(),
-            try Platforms.IphoneSimulator_x86_64()
-        ]
+        let platforms = try resolvePlatforms(filter)
         
         for platform in platforms {
             let wheel = wheel.new(version: version, platform: platform, root: working_dir)
@@ -66,13 +88,9 @@ public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: St
     }
 }
 
-public func buildCiWheels(wheel: any LibraryWheelProtocol.Type, wheel_output: Path) async throws {
+public func buildCiWheels(wheel: any LibraryWheelProtocol.Type, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
-        let platforms: [any PlatformProtocol] = [
-            try Platforms.Iphoneos(),
-            try Platforms.IphoneSimulator_arm64(),
-            try Platforms.IphoneSimulator_x86_64()
-        ]
+        let platforms = try resolvePlatforms(filter)
         
         for platform in platforms {
             

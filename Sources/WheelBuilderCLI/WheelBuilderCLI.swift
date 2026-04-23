@@ -10,6 +10,8 @@ import Tools
 import PyPi_Api
 import PipRepo
 
+extension BuildPlatform: ExpressibleByArgument {}
+
 
 @main
 struct WheelBuilderCLI: AsyncParsableCommand {
@@ -47,6 +49,9 @@ extension WheelBuilderCLI {
         
         @Argument var output: String
         
+        @Option(name: .long, help: "Filter to a specific platform: ios, android. Omit for all platforms.")
+        var platform: BuildPlatform?
+        
         func run() async throws {
             let packages = AnacondaPackages.allCases.compactMap(\.self)
             if checks {
@@ -75,15 +80,13 @@ extension WheelBuilderCLI {
             case let maturin as MaturinWheelProtocol.Type:
                 
                 for py_cache in try await py_versions() {
-                    //let py_cache = CachedPython()
-                    //try await py_cache.download(version: version, build: build)
-                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, wheel_output: .init(output))
+                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: platform, wheel_output: .init(output))
                 }
             case let ciwheel as CiWheelProtocol.Type:
-                try await buildCiWheels(wheel: ciwheel, wheel_output: .init(output))
+                try await buildCiWheels(wheel: ciwheel, platform: platform, wheel_output: .init(output))
                 
             case let library as LibraryWheelProtocol.Type:
-                try await buildCiWheels(wheel: library, wheel_output: .init(output))
+                try await buildCiWheels(wheel: library, platform: platform, wheel_output: .init(output))
             default: fatalError()
             }
         }
@@ -93,10 +96,12 @@ extension WheelBuilderCLI {
         
         @Argument(transform: {AnacondaPackages(rawValue: $0)}) var package
         
-        
         @Argument var output: String
         
         @Option(name: .long) var version: String?
+        
+        @Option(name: .long, help: "Filter to a specific platform: ios, android. Omit for all platforms.")
+        var platform: BuildPlatform?
         
         @Flag var all: Bool = false
         
@@ -118,17 +123,20 @@ extension WheelBuilderCLI {
                     wheel: maturin,
                     version: version,
                     py_cache: py_cache,
+                    platform: platform,
                     wheel_output: .init(output)
                 )
             case let ciwheel as CiWheelProtocol.Type:
                 try await buildCiWheels(
                     wheel: ciwheel,
                     version: version,
+                    platform: platform,
                     wheel_output: .init(output)
                 )
             case let library as LibraryWheelProtocol.Type:
                 try await buildCiWheels(
                     wheel: library,
+                    platform: platform,
                     wheel_output: .init(output)
                 )
             default: fatalError()
@@ -140,6 +148,9 @@ extension WheelBuilderCLI {
     struct BuildAll: AsyncParsableCommand {
         
         @Argument var output: String
+        
+        @Option(name: .long, help: "Filter to a specific platform: ios, android. Omit for all platforms.")
+        var platform: BuildPlatform?
         
         func run() async throws {
             for wheel in AnacondaPackages.allCases.compactMap(\.wheel_package) {
@@ -153,13 +164,13 @@ extension WheelBuilderCLI {
                 
                 let py_cache = CachedPython()
                 try await py_cache.download(version: "3.13", build: "b10")
-                try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, wheel_output: .init(output))
+                try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: platform, wheel_output: .init(output))
                 
             case let ciwheel as CiWheelProtocol.Type:
-                try await buildCiWheels(wheel: ciwheel, wheel_output: .init(output))
+                try await buildCiWheels(wheel: ciwheel, platform: platform, wheel_output: .init(output))
                 
             case let library as LibraryWheelProtocol.Type:
-                try await buildCiWheels(wheel: library, wheel_output: .init(output))
+                try await buildCiWheels(wheel: library, platform: platform, wheel_output: .init(output))
             default: fatalError()
             }
         }

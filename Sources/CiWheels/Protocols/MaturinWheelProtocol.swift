@@ -42,6 +42,11 @@ extension PlatformProtocol {
             }
         case .macos:
             fatalError()
+        case .android:
+            switch Self.arch {
+            case .arm64: "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER"
+            case .x86_64: "CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER"
+            }
         }
     }
     
@@ -57,6 +62,12 @@ extension PlatformProtocol {
             }
         case .macos:
             fatalError()
+        case .android:
+            // Rust target triples do NOT include the API level
+            switch Self.arch {
+            case .arm64: "aarch64-linux-android"
+            case .x86_64: "x86_64-linux-android"
+            }
         }
     }
     
@@ -67,7 +78,7 @@ extension PlatformProtocol {
     func sdk_root() throws -> Path {
         try Process.get_sdk(sdk: Self.sdk)
     }
-    
+
     func py_maturin_framework(cached: CachedPython) -> Path {
         switch Self.sdk {
             
@@ -80,6 +91,11 @@ extension PlatformProtocol {
             }
         case .macos:
             fatalError()
+        case .android:
+            switch Self.arch {
+            case .arm64: cached.arm64_android
+            case .x86_64: cached.x86_64_android
+            }
         }
     }
 }
@@ -103,26 +119,52 @@ public extension MaturinWheelProtocol {
     func build_wheel(target: Path, py_cache: CachedPython, output: Path, subfix: String) async throws {
         var env = try env()
         
-        let ios_sdkroot = try platform.sdk_root()
-        
-        let cargo_target = [
-            "-C link-arg=-isysroot", "-C link-arg=\(ios_sdkroot)",
-            "-C link-arg=-arch", "-C link-arg=\(platform.get_arch())",
-            "-C link-arg=-L", "-C link-arg=\(py_cache.python)",
-            "-C link-arg=-undefined", "-C link-arg=dynamic_lookup"
-        ]
-        
-        env["OSX_SDKROOT"] = try Process.get_macos_sdk().string
-        env["IOS_SDKROOT"] = ios_sdkroot.string
-        
-        
-        env["PYTHONDIR"] = py_cache.python.string
-        env["PYO3_CROSS_PYTHON_VERSION"] = py_cache.version
-        
-        env["SDKROOT"] = ios_sdkroot.string
-        env["PYO3_CROSS_LIB_DIR"] = platform.py_maturin_framework(cached: py_cache).string
-        //env["OPENSSL_DIR"] = "/usr/local/Cellar/openssl@3/3.5.2"
-        env[platform.cargo_target_key] = cargo_target.joined(separator: " ")
+        switch platform.get_sdk() {
+        case .android:
+            // Mirrors p4a RustCompiledComponentsRecipe.get_recipe_env()
+            let ndk = try ndk_root()
+            let llvm_bin = ndk + "toolchains/llvm/prebuilt/\(Process.android_ndk_host)/bin"
+            let sysroot = try platform.sdk_root()
+            let api = Process.android_api_level
+            
+            let clang: String
+            let libDir: String
+            switch platform.get_arch() {
+            case .arm64:
+                clang = (llvm_bin + "aarch64-linux-android\(api)-clang").string
+                libDir = (sysroot + "usr/lib/aarch64-linux-android/\(api)").string
+            case .x86_64:
+                clang = (llvm_bin + "x86_64-linux-android\(api)-clang").string
+                libDir = (sysroot + "usr/lib/x86_64-linux-android/\(api)").string
+            }
+            
+            env["ANDROID_NDK_HOME"] = ndk.string
+            env["PYO3_CROSS_PYTHON_VERSION"] = py_cache.version
+            env["PYO3_CROSS_LIB_DIR"] = platform.py_maturin_framework(cached: py_cache).string
+            // CARGO_TARGET_*_LINKER = clang binary (p4a: cargo_linker_name)
+            env[platform.cargo_target_key] = clang
+            // RUSTFLAGS with lib search path (p4a: RUSTFLAGS = "-Clink-args=-L{libs}")  
+            env["RUSTFLAGS"] = "-Clink-args=-L\(libDir)"
+            
+        default:
+            let ios_sdkroot = try platform.sdk_root()
+            
+            let cargo_target = [
+                "-C link-arg=-isysroot", "-C link-arg=\(ios_sdkroot)",
+                "-C link-arg=-arch", "-C link-arg=\(platform.get_arch())",
+                "-C link-arg=-L", "-C link-arg=\(py_cache.python)",
+                "-C link-arg=-undefined", "-C link-arg=dynamic_lookup"
+            ]
+            
+            env["OSX_SDKROOT"] = try Process.get_macos_sdk().string
+            env["IOS_SDKROOT"] = ios_sdkroot.string
+            env["PYTHONDIR"] = py_cache.python.string
+            env["PYO3_CROSS_PYTHON_VERSION"] = py_cache.version
+            env["SDKROOT"] = ios_sdkroot.string
+            env["PYO3_CROSS_LIB_DIR"] = platform.py_maturin_framework(cached: py_cache).string
+            //env["OPENSSL_DIR"] = "/usr/local/Cellar/openssl@3/3.5.2"
+            env[platform.cargo_target_key] = cargo_target.joined(separator: " ")
+        }
         
         switch build_target {
         case .local(_):

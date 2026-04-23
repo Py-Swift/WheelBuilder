@@ -15,13 +15,27 @@ public final class Openssl: LibraryWheelProtocol {
     
     static let default_version: String = "3.0.17-1"
     
+    // Android OpenSSL version may differ from iOS — p4a uses 3.x
+    static let android_default_version: String = "3.3.1-1"
+    
     public var build_target: BuildTarget {
         let v = version ?? Self.default_version
-        return .url(
-            //"https://github.com/libffi/libffi/releases/download/v\(v)/libffi-\(v).tar.gz"
-            //"https://github.com/beeware/cpython-apple-source-deps/releases/download/libFFI-\(v)/libffi-\(v)-\(sdk).\(arch).tar.gz",
-            "https://github.com/beeware/cpython-apple-source-deps/releases/download/OpenSSL-\(v)/openssl-\(v)-\(platform.sdk).\(platform.arch).tar.gz"
-        )
+        switch platform.get_sdk() {
+        case .android:
+            let av = version ?? Self.android_default_version
+            let abi: String
+            switch platform.get_arch() {
+            case .arm64:  abi = "arm64-v8a"
+            case .x86_64: abi = "x86_64"
+            }
+            return .url(
+                "https://github.com/beeware/cpython-android-source-deps/releases/download/OpenSSL-\(av)/openssl-\(av)-android-\(abi).tar.gz"
+            )
+        default:
+            return .url(
+                "https://github.com/beeware/cpython-apple-source-deps/releases/download/OpenSSL-\(v)/openssl-\(v)-\(platform.sdk).\(platform.arch).tar.gz"
+            )
+        }
     }
     
     
