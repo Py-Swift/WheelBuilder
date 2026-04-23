@@ -50,7 +50,7 @@ public final class Numpy: CiWheelProtocol {
             // pkg-config passes unchanged to the linker, causing clang to fail looking for
             // a file named "$(BLDLIBRARY)". Patch the .pc files before meson reads them.
             // Find the Python prefix from CFLAGS (contains -I/.../python/prefix/include).
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; done"
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "echo \"DBG CMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE\"; PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; echo \"DBG PYPREFIX=$PYPREFIX\"; ls \"$PYPREFIX/lib/pkgconfig/\" 2>&1 || echo \"DBG: pkgconfig dir not found\"; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; echo \"DBG: patching $f\"; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; echo \"DBG: patched -lpython${VER}\"; done"
         }
         return env
     }
