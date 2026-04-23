@@ -59,6 +59,7 @@ jobs:
           rustup target add x86_64-linux-android
 
       - name: install android ndk
+        if: github.event.inputs.platform == 'android'
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
@@ -66,8 +67,10 @@ jobs:
 
       - name: build wheels
         run: |
-          export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
-          export ANDROID_API_LEVEL=24
+          if [ "${{ github.event.inputs.platform }}" = "android" ]; then
+            export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
+            export ANDROID_API_LEVEL=24
+          fi
           mkdir -p output/wheels
           swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform ${{ github.event.inputs.platform }}
           
