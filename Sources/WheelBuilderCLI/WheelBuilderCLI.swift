@@ -49,8 +49,8 @@ extension WheelBuilderCLI {
         
         @Argument var output: String
         
-        @Option(name: .long, help: "Filter to a specific platform: ios, android. Omit for all platforms.")
-        var platform: BuildPlatform?
+        //@Option(name: .long, help: "Filter to a specific platform: ios, android. Omit for all platforms.")
+        //var platform: BuildPlatform?
         
         func run() async throws {
             let packages = AnacondaPackages.allCases.compactMap(\.self)
@@ -76,17 +76,18 @@ extension WheelBuilderCLI {
         }
     
         func build(wheel: any WheelProtocol.Type) async throws {
+            
             switch wheel {
             case let maturin as MaturinWheelProtocol.Type:
                 
                 for py_cache in try await py_versions() {
-                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: platform, wheel_output: .init(output))
+                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: nil, wheel_output: .init(output))
                 }
             case let ciwheel as CiWheelProtocol.Type:
-                try await buildCiWheels(wheel: ciwheel, platform: platform, wheel_output: .init(output))
+                try await buildCiWheels(wheel: ciwheel, platform: nil, wheel_output: .init(output))
                 
             case let library as LibraryWheelProtocol.Type:
-                try await buildCiWheels(wheel: library, platform: platform, wheel_output: .init(output))
+                try await buildCiWheels(wheel: library, platform: nil, wheel_output: .init(output))
             default: fatalError()
             }
         }

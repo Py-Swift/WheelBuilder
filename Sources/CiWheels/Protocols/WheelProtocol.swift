@@ -7,6 +7,7 @@ import Foundation
 import PlatformInfo
 import Tools
 import PathKit
+import Platforms
 
 public protocol WheelProtocol {
     static var name: String { get }
@@ -36,6 +37,8 @@ public protocol WheelProtocol {
     func get_ldflags() -> Env.LDFlags
     
     func dependencies_libraries() -> [any LibraryWheelProtocol.Type]
+    
+    static func supported_platforms() throws -> [any PlatformProtocol]
 }
 
 
@@ -51,5 +54,15 @@ public extension WheelProtocol {
             
             try await patch(file: patch_file, target: target)
         }
+    }
+    
+    static func supported_platforms() throws -> [any PlatformProtocol] {
+        [
+            try Platforms.Iphoneos(),
+            try Platforms.IphoneSimulator_arm64(),
+            try Platforms.IphoneSimulator_x86_64(),
+            try Platforms.Android_arm64(),
+            try Platforms.Android_x86_64()
+        ]
     }
 }

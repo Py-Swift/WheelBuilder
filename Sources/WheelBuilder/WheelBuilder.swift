@@ -14,7 +14,7 @@ public enum BuildPlatform: String, CaseIterable {
     case android
 }
 
-func resolvePlatforms(_ filter: BuildPlatform?) throws -> [any PlatformProtocol] {
+func resolvePlatforms(_ filter: BuildPlatform?, wheel_type: (any WheelProtocol.Type)?) throws -> [any PlatformProtocol] {
     switch filter {
     case .ios:
         return [
@@ -28,7 +28,7 @@ func resolvePlatforms(_ filter: BuildPlatform?) throws -> [any PlatformProtocol]
             try Platforms.Android_x86_64(),
         ]
     case nil:
-        return [
+        return try wheel_type?.supported_platforms() ?? [
             try Platforms.Iphoneos(),
             try Platforms.IphoneSimulator_arm64(),
             try Platforms.IphoneSimulator_x86_64(),
@@ -40,7 +40,7 @@ func resolvePlatforms(_ filter: BuildPlatform?) throws -> [any PlatformProtocol]
 
 public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = nil, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
-        let platforms = try resolvePlatforms(filter)
+        let platforms = try resolvePlatforms(filter, wheel_type: wheel)
         
         for platform in platforms {
             let wheel = wheel.new(version: nil, platform: platform, root: working_dir)
@@ -59,7 +59,7 @@ public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = ni
 
 public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: String? = nil, py_cache: CachedPython, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
-        let platforms = try resolvePlatforms(filter)
+        let platforms = try resolvePlatforms(filter, wheel_type: wheel)
         
         for platform in platforms {
             let wheel = wheel.new(version: version, platform: platform, root: working_dir)
@@ -90,7 +90,7 @@ public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: St
 
 public func buildCiWheels(wheel: any LibraryWheelProtocol.Type, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
-        let platforms = try resolvePlatforms(filter)
+        let platforms = try resolvePlatforms(filter, wheel_type: wheel)
         
         for platform in platforms {
             
