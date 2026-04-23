@@ -47,10 +47,9 @@ public final class Numpy: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=/tmp/numpy-android-meson-cross.ini setup-args=-Dblas=none setup-args=-Dlapack=none"
             // The Android Python's python*.pc files contain a literal "$(BLDLIBRARY)" which
-            // pkg-config passes unchanged to the linker, causing clang to fail looking for
-            // a file named "$(BLDLIBRARY)". Patch the .pc files before meson reads them.
-            // Find the Python prefix from CFLAGS (contains -I/.../python/prefix/include).
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; done"
+            // pkg-config silently drops, causing meson to link without -lpython3.x.
+            // Patch the .pc files using Python before meson reads them.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "python3 -c 'import os,glob,re;p=os.path.dirname(os.environ.get(\"CMAKE_TOOLCHAIN_FILE\",\"\"))+\"/python/prefix/lib/pkgconfig\";[open(f,\"w\").write(open(f).read().replace(\"$(BLDLIBRARY)\",\"-lpython\"+re.search(r\"Version:\\s+(\\S+)\",open(f).read()).group(1))) for f in glob.glob(p+\"/python-[0-9]*.pc\") if not os.path.islink(f) and \"$(BLDLIBRARY)\" in open(f).read()]'"
         }
         return env
     }
