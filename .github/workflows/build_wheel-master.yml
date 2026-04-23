@@ -59,7 +59,7 @@ jobs:
           rustup target add x86_64-linux-android
 
       - name: install android ndk
-        run: sdkmanager "ndk;27.3.13750724"
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.3.13750724"
 
       - name: build wheels
         run: |
