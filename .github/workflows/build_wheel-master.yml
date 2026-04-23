@@ -68,6 +68,15 @@ jobs:
         with:
           ndk-version: r27c
 
+      - name: debug android env
+        if: github.event.inputs.platform == 'android'
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
+          echo "ndk-path=${{ steps.setup-ndk.outputs.ndk-path }}"
+          ls "${{ steps.setup-ndk.outputs.ndk-path }}" || true
+
       - name: build wheels
         run: |
           if [ "${{ github.event.inputs.platform }}" = "android" ]; then
