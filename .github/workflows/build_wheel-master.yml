@@ -72,7 +72,6 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.platform }}" = "android" ]; then
             export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
-            export ANDROID_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
             export ANDROID_API_LEVEL=24
           fi
           mkdir -p output/wheels
