@@ -45,23 +45,23 @@ public final class Numpy: CiWheelProtocol {
         env["CIBW_TEST_SKIP"] = "*"
         if platform.get_sdk() == .android {
             // NPY_DISABLE_SVML=1: avoid SVML which is not available on Android.
-            // LDFLAGS: explicitly add -lpython<ver> so the linker resolves Python symbols.
-            // The Android Python's python*.pc Libs: field may contain "$(BLDLIBRARY)" (a
-            // Makefile variable that pkg-config passes through unexpanded) or may simply
-            // omit any -l flag entirely.  Either way meson drops the token and the linker
-            // never receives -lpython3.xx, causing undefined-symbol errors under
-            // -Wl,--no-undefined.  Belt-and-suspenders: add -lpython<ver> to LDFLAGS
-            // directly so it is always present regardless of what the .pc file contains.
-            env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1 LDFLAGS=\"$LDFLAGS -lpython$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')\""
+            env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=/tmp/numpy-android-meson-cross.ini setup-args=-Dblas=none setup-args=-Dlapack=none"
-            // Also patch the Python .pc files so that pkg-config itself returns correct
-            // link flags (belt-and-suspenders: the LDFLAGS above already covers the gap).
-            // Use $PKG_CONFIG_LIBDIR which cibuildwheel sets directly to the pkgconfig dir.
-            // Steps:
-            //   1. Replace the unexpanded make variable $(BLDLIBRARY) with -lpython<ver>.
-            //   2. If the Libs: line still has no -lpython entry (e.g. the field was simply
-            //      absent), append -lpython<ver> to the Libs: line.
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "for f in \"$PKG_CONFIG_LIBDIR/python-3\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); echo \"DBG: patching $f (VER=${VER})\"; grep 'Libs:' \"$f\" || true; sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; grep -q -- -lpython \"$f\" || sed -i '' \"/^Libs:/ s/$/ -lpython${VER}/\" \"$f\"; echo \"DBG: after patch:\"; grep 'Libs:' \"$f\" || true; done"
+            // The Android Python sysroot ships two pkg-config files:
+            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- broken: $(BLDLIBRARY)
+            //                                                              is an unexpanded Makefile
+            //                                                              variable; meson/pkg-config
+            //                                                              drops it, so -lpython3.x is
+            //                                                              never passed to the linker.
+            //   python-3.x-embed.pc Libs: -L${libdir} -lpython3.x     <- correct
+            //
+            // Fix: before the build starts,
+            //   1. Detect the Python version from the embed .pc filename in PKG_CONFIG_LIBDIR
+            //      (more reliable than reading the host python3 version which may differ).
+            //   2. Copy the embed .pc over the broken one so pkg-config returns correct flags.
+            //   3. Also append [built-in options] c/cpp_link_args to the meson cross file as
+            //      a belt-and-suspenders guarantee even if step 2 is somehow skipped.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "PCDIR=\"$PKG_CONFIG_LIBDIR\"; echo \"DBG PCDIR=$PCDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc: $(grep Libs: $BROKEN)\"; echo \"\" >> /tmp/numpy-android-meson-cross.ini; echo \"[built-in options]\" >> /tmp/numpy-android-meson-cross.ini; echo \"c_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; echo \"cpp_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; else echo \"DBG: WARNING embed .pc not found; falling back to host python version\"; VER=$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")'); echo \"\" >> /tmp/numpy-android-meson-cross.ini; echo \"[built-in options]\" >> /tmp/numpy-android-meson-cross.ini; echo \"c_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; echo \"cpp_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; fi; echo \"DBG cross file:\"; cat /tmp/numpy-android-meson-cross.ini"
         }
         return env
     }

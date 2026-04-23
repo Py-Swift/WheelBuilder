@@ -87,8 +87,17 @@ jobs:
           fi
           mkdir -p output/wheels
           swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform ${{ github.event.inputs.platform }}
-          
-      - run: ls output/wheels
+
+      - name: verify wheels were produced
+        run: |
+          echo "Wheel files in output/wheels:"
+          ls output/wheels/
+          WHL_COUNT=$(find output/wheels -name "*.whl" | wc -l | tr -d ' ')
+          echo "Found $WHL_COUNT wheel(s)"
+          if [ "$WHL_COUNT" -eq 0 ]; then
+            echo "ERROR: cibuildwheel produced no .whl files — build failed."
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
