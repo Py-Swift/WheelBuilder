@@ -10,6 +10,10 @@ on:
     
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # This workflow contains a single job called "build"
   build:
