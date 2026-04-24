@@ -48,20 +48,21 @@ public final class Numpy: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=/tmp/numpy-android-meson-cross.ini setup-args=-Dblas=none setup-args=-Dlapack=none"
             // The Android Python sysroot ships two pkg-config files:
-            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- broken: $(BLDLIBRARY)
-            //                                                              is an unexpanded Makefile
-            //                                                              variable; meson/pkg-config
-            //                                                              drops it, so -lpython3.x is
-            //                                                              never passed to the linker.
+            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- broken: $(BLDLIBRARY) is
+            //                                                              an unexpanded Makefile var;
+            //                                                              pkg-config passes it through
+            //                                                              literally so the linker never
+            //                                                              receives -lpython3.x, causing
+            //                                                              undefined-symbol errors under
+            //                                                              -Wl,--no-undefined.
             //   python-3.x-embed.pc Libs: -L${libdir} -lpython3.x     <- correct
             //
-            // Fix: before the build starts,
-            //   1. Detect the Python version from the embed .pc filename in PKG_CONFIG_LIBDIR
-            //      (more reliable than reading the host python3 version which may differ).
-            //   2. Copy the embed .pc over the broken one so pkg-config returns correct flags.
-            //   3. Also append [built-in options] c/cpp_link_args to the meson cross file as
-            //      a belt-and-suspenders guarantee even if step 2 is somehow skipped.
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "PCDIR=\"$PKG_CONFIG_LIBDIR\"; echo \"DBG PCDIR=$PCDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc: $(grep Libs: $BROKEN)\"; echo \"\" >> /tmp/numpy-android-meson-cross.ini; echo \"[built-in options]\" >> /tmp/numpy-android-meson-cross.ini; echo \"c_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; echo \"cpp_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; else echo \"DBG: WARNING embed .pc not found; falling back to host python version\"; VER=$(python3 -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")'); echo \"\" >> /tmp/numpy-android-meson-cross.ini; echo \"[built-in options]\" >> /tmp/numpy-android-meson-cross.ini; echo \"c_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; echo \"cpp_link_args = ['-lpython${VER}']\" >> /tmp/numpy-android-meson-cross.ini; fi; echo \"DBG cross file:\"; cat /tmp/numpy-android-meson-cross.ini"
+            // Fix: copy the embed .pc over the broken one so pkg-config returns correct link flags.
+            // NOTE: Do NOT also add c_link_args to the meson cross file.  Adding -lpython3.x to
+            // [built-in options] c_link_args without the matching -L path injects a dangling -l flag
+            // into every meson linker check (including the sin/-lm probe), causing them all to fail
+            // with "unable to find library -lpython3.x" and aborting the configure phase.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "PCDIR=\"$PKG_CONFIG_LIBDIR\"; echo \"DBG PCDIR=$PCDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc, Libs now: $(grep Libs: $BROKEN)\"; else echo \"DBG: WARNING python-*-embed.pc not found in $PCDIR\"; fi"
         }
         return env
     }
