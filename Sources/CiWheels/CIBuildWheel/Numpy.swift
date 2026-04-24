@@ -44,13 +44,21 @@ public final class Numpy: CiWheelProtocol {
         env["CIBW_BEFORE_BUILD"] = ""
         env["CIBW_TEST_SKIP"] = "*"
         if platform.get_sdk() == .android {
+            // NPY_DISABLE_SVML=1: avoid SVML which is not available on Android.
             env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=/tmp/numpy-android-meson-cross.ini setup-args=-Dblas=none setup-args=-Dlapack=none"
-            // The Android Python's python*.pc files contain a literal "$(BLDLIBRARY)" which
-            // pkg-config passes unchanged to the linker, causing clang to fail looking for
-            // a file named "$(BLDLIBRARY)". Patch the .pc files before meson reads them.
-            // Find the Python prefix from CFLAGS (contains -I/.../python/prefix/include).
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "echo \"DBG CMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE\"; PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; echo \"DBG PYPREFIX=$PYPREFIX\"; ls \"$PYPREFIX/lib/pkgconfig/\" 2>&1 || echo \"DBG: pkgconfig dir not found\"; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; echo \"DBG: patching $f\"; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; echo \"DBG: patched -lpython${VER}\"; done"
+            // Android requires two fixes:
+            // 1. python-3.x.pc has "$(BLDLIBRARY)" (unexpanded Makefile var) — copy the correct
+            //    python-3.x-embed.pc over it so meson gets proper -lpython3.x from pkg-config.
+            // 2. cibuildwheel adds -Wl,--no-undefined for Android, but meson-python strips -lpython
+            //    from extension link lines. Inject -L<prefix>/lib -lpython3.x via [built-in options]
+            //    in the cross file so every extension .so links the Python symbols explicitly.
+            // CMAKE_TOOLCHAIN_FILE is set by cibuildwheel for every Android build and its dirname
+            // is the per-target temp dir; Python is always at dirname/python/prefix.
+            // NOTE: cibuildwheel runs this script once per Python target (cp313, cp314, …).
+            // Strip any existing [built-in options] section before appending so that the second
+            // and later targets (e.g. cp314) don't get a duplicate section that makes meson fail.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; PYLIBDIR=\"$PYPREFIX/lib\"; PCDIR=\"$PYLIBDIR/pkgconfig\"; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\"; sed -i '' '/^\\[built-in options\\]/,$d' /tmp/numpy-android-meson-cross.ini; { echo ''; echo '[built-in options]'; echo \"c_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; echo \"cpp_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; } >> /tmp/numpy-android-meson-cross.ini; fi"
         }
         return env
     }
