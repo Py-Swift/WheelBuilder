@@ -57,37 +57,37 @@ extension WheelBuilderCLI {
             if checks {
                 for pack in packages {
                     if let data = try? await pack.packageData() {
-                        if try await compare_versions(target: data) {
-                            if let wheel = pack.wheel_package {
-                                try await self.build(wheel: wheel)
-                            }
+                        let platforms = try await compare_versions(target: data)
+                        if !platforms.isEmpty, let wheel = pack.wheel_package {
+                            let filter: BuildPlatform? = platforms.count == 1 ? platforms[0] : nil
+                            try await self.build(wheel: wheel, platform: filter)
                         }
                     } else {
                         if let wheel = pack.wheel_package {
-                            try await self.build(wheel: wheel)
+                            try await self.build(wheel: wheel, platform: nil)
                         }
                     }
                 }
             } else {
                 for wheel in packages.compactMap(\.wheel_package) {
-                    try await self.build(wheel: wheel)
+                    try await self.build(wheel: wheel, platform: nil)
                 }
             }
         }
     
-        func build(wheel: any WheelProtocol.Type) async throws {
+        func build(wheel: any WheelProtocol.Type, platform: BuildPlatform?) async throws {
             
             switch wheel {
             case let maturin as MaturinWheelProtocol.Type:
                 
                 for py_cache in try await py_versions() {
-                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: nil, wheel_output: .init(output))
+                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: platform, wheel_output: .init(output))
                 }
             case let ciwheel as CiWheelProtocol.Type:
-                try await buildCiWheels(wheel: ciwheel, platform: nil, wheel_output: .init(output))
+                try await buildCiWheels(wheel: ciwheel, platform: platform, wheel_output: .init(output))
                 
             case let library as LibraryWheelProtocol.Type:
-                try await buildCiWheels(wheel: library, platform: nil, wheel_output: .init(output))
+                try await buildCiWheels(wheel: library, platform: platform, wheel_output: .init(output))
             default: fatalError()
             }
         }
@@ -192,24 +192,34 @@ extension WheelBuilderCLI {
 }
 
 
-public func compare_versions(target: IphoneosWheelSources.PackageData) async throws -> Bool {
-    
-    
-    let pypi = await PyPi.getApi(for: target.name)
-    
-    let lastest_version = target.latest_version
-    
-    if let pypi {
-        let needs_build = pypi.info.version > lastest_version
-        if needs_build {
-            print("\n############# \(target.name) #############")
-            print("pypi version: \(pypi.info.version)")
-            print("pyswift version: \(lastest_version)")
-            //print("wheel build required? \(pypi.info.version > lastest_version)")
-            print("\n##########################################")
-            print()
-        }
-        return needs_build
+public func compare_versions(target: IphoneosWheelSources.PackageData) async throws -> [BuildPlatform] {
+    guard let pypi = await PyPi.getApi(for: target.name) else {
+        return BuildPlatform.allCases
     }
-    return true
+    
+    let pypiVersion = pypi.info.version
+    
+    let iosLatest = target.files
+        .filter { $0.basename.contains("iphoneos") || $0.basename.contains("iphonesimulator") }
+        .map(\.version).max()
+    let androidLatest = target.files
+        .filter { $0.basename.contains("android") }
+        .map(\.version).max()
+    
+    var needed: [BuildPlatform] = []
+    if iosLatest.map({ pypiVersion > $0 }) ?? true     { needed.append(.ios) }
+    if androidLatest.map({ pypiVersion > $0 }) ?? true { needed.append(.android) }
+    
+    if !needed.isEmpty {
+        let iosStr     = iosLatest     ?? "missing"
+        let androidStr = androidLatest ?? "missing"
+        print("\n############# \(target.name) #############")
+        print("pypi version:    \(pypiVersion)")
+        print("ios latest:      \(iosStr)")
+        print("android latest:  \(androidStr)")
+        print("needs build:     \(needed.map(\.rawValue).joined(separator: ", "))")
+        print("##########################################\n")
+    }
+    
+    return needed
 }

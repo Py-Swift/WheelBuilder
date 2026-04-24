@@ -96,11 +96,16 @@ public extension CiWheelProtocol {
     
     
     func base_env() -> [String:String] {
-        [
+        var extra: [String: String] = [
             "CFLAGS": get_cflags().description,
             "LDFLAGS": get_ldflags().description,
-            "ANDROID_API_LEVEL": Process.android_api_level
-        ] + processInfo.environment
+            "ANDROID_API_LEVEL": Process.android_api_level,
+        ]
+        if platform.get_sdk() == .android {
+            let home = Process.android_home
+            if !home.isEmpty { extra["ANDROID_HOME"] = home }
+        }
+        return extra + processInfo.environment
     }
     
     func env() throws -> [String : String] {

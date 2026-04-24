@@ -11,18 +11,20 @@ import Foundation
 public final class Libffi: LibraryWheelProtocol {
     
     static let default_version: String = "3.4.7-2"
+    static let android_default_version: String = "3.4.4-3"
 
     public var build_target: BuildTarget {
         let v = version ?? Self.default_version
         switch platform.get_sdk() {
         case .android:
-            let abi: String
+            let av = version ?? Self.android_default_version
+            let arch: String
             switch platform.get_arch() {
-            case .arm64:  abi = "arm64-v8a"
-            case .x86_64: abi = "x86_64"
+            case .arm64:  arch = "aarch64-linux-android"
+            case .x86_64: arch = "x86_64-linux-android"
             }
             return .url(
-                "https://github.com/beeware/cpython-android-source-deps/releases/download/libFFI-\(v)/libffi-\(v)-android-\(abi).tar.gz"
+                "https://github.com/beeware/cpython-android-source-deps/releases/download/libffi-\(av)/libffi-\(av)-\(arch).tar.gz"
             )
         default:
             let sdk = platform.get_sdk()
@@ -33,6 +35,10 @@ public final class Libffi: LibraryWheelProtocol {
         }
     }
 
+
+    public func cflag_includes() -> [Env.CFlags.Value] {
+        [.include(include_dir() + "ffi")]
+    }
 
     public func pre_build_library(working_dir: Path) async throws {
         
@@ -116,10 +122,6 @@ public final class Libffi: LibraryWheelProtocol {
 //        try libffi_build.copy(wheels + "\(sdk)")
         
         
-    }
-    
-    public func cflag_includes() -> [Env.CFlags.Value] {
-        [.include(include_dir() + "ffi")]
     }
 }
 

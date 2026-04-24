@@ -82,6 +82,24 @@ extension Process {
         fatalError("ANDROID_NDK_HOME=\(ndkHome) is not an NDK root. Point it to e.g. .../ndk/27.3.13750724")
     }
     
+    /// Derive ANDROID_HOME (SDK root) from ANDROID_NDK_HOME if not already set.
+    /// NDK is typically at <sdk>/ndk/<version>, so go up two levels.
+    public static var android_home: String {
+        if let home = ProcessInfo.processInfo.environment["ANDROID_HOME"] { return home }
+        if let ndkHome = ProcessInfo.processInfo.environment["ANDROID_NDK_HOME"] {
+            let base = Path(ndkHome)
+            // If base has toolchains/, it IS the NDK root → sdk = parent of parent
+            if (base + "toolchains").exists {
+                return base.parent().parent().string
+            }
+            // If base has ndk/, it IS the sdk root already
+            if (base + "ndk").exists {
+                return base.string
+            }
+        }
+        return ""
+    }
+
     public static var android_api_level: String {
         ProcessInfo.processInfo.environment["ANDROID_API_LEVEL"] ?? "24"
     }
