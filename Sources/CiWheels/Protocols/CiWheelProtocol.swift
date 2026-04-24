@@ -100,9 +100,6 @@ public extension CiWheelProtocol {
             "CFLAGS": get_cflags().description,
             "LDFLAGS": get_ldflags().description,
             "ANDROID_API_LEVEL": Process.android_api_level,
-            // Restrict to CPython only — cibuildwheel 3.4.1 includes PyPy selectors
-            // by default which require explicit `enable: [pypy]` and we don't build PyPy.
-            "CIBW_BUILD": "cp313-* cp314-*",
         ]
         if platform.get_sdk() == .android {
             let home = Process.android_home

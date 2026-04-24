@@ -18,6 +18,9 @@ public final class Pymunk: CiWheelProtocol {
 
     public func env() throws -> [String: String] {
         var env = base_env()
+        // pymunk's pyproject.toml includes PyPy selectors (pp310-*, pp311-*) which
+        // require explicit `enable: [pypy]` in cibuildwheel 3.4.1 — restrict to CPython.
+        env["CIBW_BUILD"] = "cp313-* cp314-*"
         if platform.get_sdk() == .android {
             // p4a: LDFLAGS += -llog (Chipmunk cpMessage) -lm (older Android)
             // cffi for Android is available on pyswift (same as iOS)
