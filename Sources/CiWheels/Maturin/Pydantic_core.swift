@@ -23,7 +23,7 @@ public final class Pydantic_core: CiWheelProtocol {
             // can find libSystem when cross-compiling for Android
             env["SDKROOT"] = try Process.get_macos_sdk().string
         } else {
-            env["CIBW_XBUILD_TOOLS_IOS"] = "cmake rustc cargo"
+            env["CIBW_XBUILD_TOOLS_IOS"] = "cmake rustc cargo maturin"
             
             let ios_sdkroot = try platform.sdk_root()
             
