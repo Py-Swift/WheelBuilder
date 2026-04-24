@@ -50,30 +50,33 @@ public final class Numpy: CiWheelProtocol {
             // Android Python build: two independent problems must be solved so numpy links.
             //
             // Problem 1 — broken pkg-config file in Chaquopy sysroot:
-            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- $(BLDLIBRARY) is an
-            //                                                              unexpanded Makefile var;
+            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- broken: $(BLDLIBRARY) is an
+            //                                                              unexpanded Makefile variable;
             //                                                              pkg-config passes it through
-            //                                                              literally so downstream tools
-            //                                                              never see -lpython3.x.
+            //                                                              literally so the linker never
+            //                                                              receives -lpython3.x.
             //   python-3.x-embed.pc Libs: -L${libdir} -lpython3.x     <- correct
-            //   Fix: copy the embed .pc over the broken one so meson's pkg-config lookup for
-            //   dependency('python-3.x') returns a sane -L path (used for probes and extensions).
+            //   Fix: copy the embed .pc over the broken one so meson's dependency('python-3.x') lookup
+            //   returns correct -L and -l flags.
             //
             // Problem 2 — meson deliberately strips -lpython from Python-extension link lines:
-            //   meson-python's python.extension_module() does NOT pass -lpython3.x because on typical
-            //   Linux/macOS hosts the extension is dlopen'd into the interpreter and all Python symbols
-            //   are resolved from the already-loaded libpython.  But Android's cibuildwheel config
-            //   forces -Wl,--no-undefined on every shared object, so the extension .so MUST resolve
-            //   PyMem_Malloc / PyErr_* / etc. at link time — otherwise the link fails with dozens of
-            //   "undefined symbol: Py..." errors (observed on run 24879792715).
+            //   meson-python's python.extension_module() does NOT add -lpython3.x to the link because
+            //   on typical Linux/macOS the extension is dlopen'd into the interpreter and all Python
+            //   symbols are resolved from the already-loaded libpython. But Android's cibuildwheel
+            //   forces -Wl,--no-undefined on every shared object, so each extension .so MUST resolve
+            //   PyMem_Malloc / PyErr_* / etc. at link time — failing with dozens of
+            //   "undefined symbol: Py..." errors (observed on CI run 24879792715).
             //   Fix: inject both -L<prefix>/lib and -lpython3.x via the meson cross file's
-            //   [built-in options] c_link_args / cpp_link_args.  Both are required: the bare -l alone
-            //   breaks meson's sin/-lm probe (it runs without the Python -L path and reports
-            //   "unable to find library -lpython3.x"), as seen on run 24877608829.
+            //   [built-in options] c_link_args / cpp_link_args.  BOTH are needed:
+            //   - -l alone → meson's sin/-lm capability probe fails ("unable to find library
+            //     -lpython3.x") because the probe runs without a -L path.
+            //   - -L alone → extensions still missing the explicit -l → undefined Py* symbols.
             //
-            //   <prefix>/lib is $(dirname $PKG_CONFIG_LIBDIR) because cibuildwheel sets
-            //   PKG_CONFIG_LIBDIR=$prefix/lib/pkgconfig in android-env.sh.
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "set -e; PCDIR=\"$PKG_CONFIG_LIBDIR\"; PYLIBDIR=\"$(dirname \"$PCDIR\")\"; echo \"DBG PCDIR=$PCDIR\"; echo \"DBG PYLIBDIR=$PYLIBDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -z \"$PC\" ]; then echo \"ERROR: python-*-embed.pc not found in $PCDIR\"; exit 1; fi; VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc, Libs now: $(grep Libs: $BROKEN)\"; LIBPY=\"$(ls $PYLIBDIR/libpython${VER}*.so $PYLIBDIR/libpython${VER}*.a 2>/dev/null | head -1)\"; echo \"DBG libpython on disk: $LIBPY\"; { echo \"\"; echo \"[built-in options]\"; echo \"c_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; echo \"cpp_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; } >> /tmp/numpy-android-meson-cross.ini; echo \"DBG cross file:\"; cat /tmp/numpy-android-meson-cross.ini"
+            // NOTE on PKG_CONFIG_LIBDIR: this env var is NOT reliably set during before_build
+            // (confirmed empty in CI run 24880758596). We use `python -c "import sys; print(sys.prefix)"`
+            // instead — `python` in the before_build env is the cross-target Python whose prefix is the
+            // Chaquopy/PBS sysroot, so prefix/lib is always the correct library directory.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "set -e; PYPREFIX=$(python -c 'import sys; print(sys.prefix)'); PYLIBDIR=\"${PYPREFIX}/lib\"; PCDIR=\"${PYLIBDIR}/pkgconfig\"; echo \"DBG PYPREFIX=$PYPREFIX\"; echo \"DBG PYLIBDIR=$PYLIBDIR\"; echo \"DBG PCDIR=$PCDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -z \"$PC\" ]; then echo \"ERROR: python-*-embed.pc not found in $PCDIR\"; exit 1; fi; VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc, Libs now: $(grep Libs: $BROKEN)\"; echo \"DBG libpython: $(ls ${PYLIBDIR}/libpython${VER}*.so ${PYLIBDIR}/libpython${VER}*.a 2>/dev/null | head -1)\"; { echo \"\"; echo \"[built-in options]\"; echo \"c_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; echo \"cpp_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; } >> /tmp/numpy-android-meson-cross.ini; echo \"DBG cross file:\"; cat /tmp/numpy-android-meson-cross.ini"
         }
         return env
     }
