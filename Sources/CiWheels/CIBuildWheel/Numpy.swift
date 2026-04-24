@@ -55,7 +55,10 @@ public final class Numpy: CiWheelProtocol {
             //    in the cross file so every extension .so links the Python symbols explicitly.
             // CMAKE_TOOLCHAIN_FILE is set by cibuildwheel for every Android build and its dirname
             // is the per-target temp dir; Python is always at dirname/python/prefix.
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; PYLIBDIR=\"$PYPREFIX/lib\"; PCDIR=\"$PYLIBDIR/pkgconfig\"; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\"; { echo ''; echo '[built-in options]'; echo \"c_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; echo \"cpp_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; } >> /tmp/numpy-android-meson-cross.ini; fi"
+            // NOTE: cibuildwheel runs this script once per Python target (cp313, cp314, …).
+            // Strip any existing [built-in options] section before appending so that the second
+            // and later targets (e.g. cp314) don't get a duplicate section that makes meson fail.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; PYLIBDIR=\"$PYPREFIX/lib\"; PCDIR=\"$PYLIBDIR/pkgconfig\"; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\"; sed -i '' '/^\\[built-in options\\]/,$d' /tmp/numpy-android-meson-cross.ini; { echo ''; echo '[built-in options]'; echo \"c_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; echo \"cpp_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; } >> /tmp/numpy-android-meson-cross.ini; fi"
         }
         return env
     }

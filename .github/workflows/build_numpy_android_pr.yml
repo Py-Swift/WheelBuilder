@@ -53,7 +53,7 @@ jobs:
           export ANDROID_API_LEVEL=24
           export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
           mkdir -p output/wheels
-          swift run WheelBuilderCLI build numpy $PWD/output/wheels --version 2.3.0 --platform android
+          swift run WheelBuilderCLI build numpy $PWD/output/wheels --version 2.4.4 --platform android
 
       - name: verify wheels were produced
         run: |
