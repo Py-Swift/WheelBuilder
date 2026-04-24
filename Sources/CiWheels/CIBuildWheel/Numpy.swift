@@ -47,22 +47,33 @@ public final class Numpy: CiWheelProtocol {
             // NPY_DISABLE_SVML=1: avoid SVML which is not available on Android.
             env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=/tmp/numpy-android-meson-cross.ini setup-args=-Dblas=none setup-args=-Dlapack=none"
-            // The Android Python sysroot ships two pkg-config files:
-            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- broken: $(BLDLIBRARY) is
-            //                                                              an unexpanded Makefile var;
-            //                                                              pkg-config passes it through
-            //                                                              literally so the linker never
-            //                                                              receives -lpython3.x, causing
-            //                                                              undefined-symbol errors under
-            //                                                              -Wl,--no-undefined.
-            //   python-3.x-embed.pc Libs: -L${libdir} -lpython3.x     <- correct
+            // Android Python build: two independent problems must be solved so numpy links.
             //
-            // Fix: copy the embed .pc over the broken one so pkg-config returns correct link flags.
-            // NOTE: Do NOT also add c_link_args to the meson cross file.  Adding -lpython3.x to
-            // [built-in options] c_link_args without the matching -L path injects a dangling -l flag
-            // into every meson linker check (including the sin/-lm probe), causing them all to fail
-            // with "unable to find library -lpython3.x" and aborting the configure phase.
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "PCDIR=\"$PKG_CONFIG_LIBDIR\"; echo \"DBG PCDIR=$PCDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -n \"$PC\" ]; then VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc, Libs now: $(grep Libs: $BROKEN)\"; else echo \"DBG: WARNING python-*-embed.pc not found in $PCDIR\"; fi"
+            // Problem 1 — broken pkg-config file in Chaquopy sysroot:
+            //   python-3.x.pc       Libs: -L${libdir} $(BLDLIBRARY)   <- $(BLDLIBRARY) is an
+            //                                                              unexpanded Makefile var;
+            //                                                              pkg-config passes it through
+            //                                                              literally so downstream tools
+            //                                                              never see -lpython3.x.
+            //   python-3.x-embed.pc Libs: -L${libdir} -lpython3.x     <- correct
+            //   Fix: copy the embed .pc over the broken one so meson's pkg-config lookup for
+            //   dependency('python-3.x') returns a sane -L path (used for probes and extensions).
+            //
+            // Problem 2 — meson deliberately strips -lpython from Python-extension link lines:
+            //   meson-python's python.extension_module() does NOT pass -lpython3.x because on typical
+            //   Linux/macOS hosts the extension is dlopen'd into the interpreter and all Python symbols
+            //   are resolved from the already-loaded libpython.  But Android's cibuildwheel config
+            //   forces -Wl,--no-undefined on every shared object, so the extension .so MUST resolve
+            //   PyMem_Malloc / PyErr_* / etc. at link time — otherwise the link fails with dozens of
+            //   "undefined symbol: Py..." errors (observed on run 24879792715).
+            //   Fix: inject both -L<prefix>/lib and -lpython3.x via the meson cross file's
+            //   [built-in options] c_link_args / cpp_link_args.  Both are required: the bare -l alone
+            //   breaks meson's sin/-lm probe (it runs without the Python -L path and reports
+            //   "unable to find library -lpython3.x"), as seen on run 24877608829.
+            //
+            //   <prefix>/lib is $(dirname $PKG_CONFIG_LIBDIR) because cibuildwheel sets
+            //   PKG_CONFIG_LIBDIR=$prefix/lib/pkgconfig in android-env.sh.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "set -e; PCDIR=\"$PKG_CONFIG_LIBDIR\"; PYLIBDIR=\"$(dirname \"$PCDIR\")\"; echo \"DBG PCDIR=$PCDIR\"; echo \"DBG PYLIBDIR=$PYLIBDIR\"; ls \"$PCDIR/\" 2>&1; PC=$(ls \"$PCDIR/python-3.\"*\"-embed.pc\" 2>/dev/null | head -1); if [ -z \"$PC\" ]; then echo \"ERROR: python-*-embed.pc not found in $PCDIR\"; exit 1; fi; VER=$(basename \"$PC\" | sed 's/python-//;s/-embed\\.pc//'); BROKEN=\"$PCDIR/python-${VER}.pc\"; [ -f \"$BROKEN\" ] && cp \"$PC\" \"$BROKEN\" && echo \"DBG: copied embed->pc, Libs now: $(grep Libs: $BROKEN)\"; LIBPY=\"$(ls $PYLIBDIR/libpython${VER}*.so $PYLIBDIR/libpython${VER}*.a 2>/dev/null | head -1)\"; echo \"DBG libpython on disk: $LIBPY\"; { echo \"\"; echo \"[built-in options]\"; echo \"c_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; echo \"cpp_link_args = ['-L${PYLIBDIR}', '-lpython${VER}']\"; } >> /tmp/numpy-android-meson-cross.ini; echo \"DBG cross file:\"; cat /tmp/numpy-android-meson-cross.ini"
         }
         return env
     }
