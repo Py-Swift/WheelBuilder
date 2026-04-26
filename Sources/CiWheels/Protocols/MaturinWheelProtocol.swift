@@ -103,9 +103,51 @@ extension PlatformProtocol {
 public extension MaturinWheelProtocol {
     
     func env() throws -> [String : String] {
-        var env = base_env() + ProcessInfo.processInfo.environment
+        var env = base_env()
         
-        env["PATH"]?.extendedPath() 
+        if let home = ProcessInfo.processInfo.environment["HOME"] {
+            env["CARGO"] = "\(home)/.cargo/bin/cargo"
+            env["RUSTC"] = "\(home)/.cargo/bin/rustc"
+            // Prepend ~/.cargo/bin so cibuildwheel's shutil.which("cargo") finds the rustup
+            // shim (which has iOS targets installed) before Homebrew's cargo at /usr/local/bin.
+            if let currentPath = env["PATH"] {
+                env["PATH"] = "\(home)/.cargo/bin:\(currentPath)"
+            }
+        }
+        
+        if platform.get_sdk() == .android {
+            // Set macOS SDK so Rust host build scripts (proc-macro2, quote, etc.)
+            // can find libSystem when cross-compiling for Android
+            env["SDKROOT"] = try Process.get_macos_sdk().string
+        } else {
+            let ios_sdkroot = try platform.sdk_root()
+            let macos_sdkroot = try Process.get_macos_sdk()
+            
+            env["CIBW_XBUILD_TOOLS_IOS"] = "cmake rustc cargo maturin"
+            
+            let cargo_target = [
+                "-C link-arg=-isysroot", "-C link-arg=\(ios_sdkroot)",
+                "-C link-arg=-arch", "-C link-arg=\(platform.get_arch())",
+                "-C link-arg=-undefined", "-C link-arg=dynamic_lookup"
+            ]
+            
+            env["OSX_SDKROOT"] = macos_sdkroot.string
+            env["IOS_SDKROOT"] = ios_sdkroot.string
+            // Use macOS SDKROOT in the outer env so host tools (pip, cargo build
+            // scripts like proc-macro2) don't fail on iPhoneOS SDK headers.
+            // The iOS SDKROOT is passed into the cibuildwheel build env below.
+            env["SDKROOT"] = macos_sdkroot.string
+            env[platform.cargo_target_key] = cargo_target.joined(separator: " ")
+            // Force explicit --target so maturin uses full triple comparison for
+            // cross_compiling detection (rustc host x86_64-apple-darwin != aarch64-apple-ios)
+            // rather than machine-arch comparison which fails on Apple Silicon for iOS device.
+            env["MATURIN_PEP517_ARGS"] = "--target \(platform.maturin_target)"
+            env["CIBW_ENVIRONMENT_IOS"] = [
+                "PYO3_CROSS=1",
+                "IOS_SDKROOT=\"\(ios_sdkroot)\"",
+                #"PYO3_CROSS_PYTHON_VERSION=$(python3 -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')"#
+            ].joined(separator: " ")
+        }
         
         return env
     }
@@ -156,13 +198,38 @@ public extension MaturinWheelProtocol {
                 "-C link-arg=-undefined", "-C link-arg=dynamic_lookup"
             ]
             
+            // Compute ext_suffix for the pyo3 config file.
+            // e.g. "3.13" → versionTag = "313"
+            let versionParts = py_cache.version.split(separator: ".").compactMap { Int($0) }
+            let versionTag = versionParts.count >= 2 ? "\(versionParts[0])\(versionParts[1])" : "313"
+            let extSuffix = platform.get_sdk() == .iphoneos
+                ? ".cpython-\(versionTag)-iphoneos.so"
+                : ".cpython-\(versionTag)-iphonesimulator.so"
+            
+            // Write a pyo3 config file so maturin skips Python interpreter discovery.
+            // Without this, maturin calls `python3` which returns "darwin" for platform.system(),
+            // and fails because that doesn't match any iOS target (cross_compiling: false for all iOS).
+            let pyo3ConfigContent = [
+                "implementation=CPython",
+                "version=\(py_cache.version)",
+                "shared=true",
+                "abi3=false",
+                "build_flags=",
+                "suppress_build_script_link_lines=false",
+                "lib_name=python\(py_cache.version)",
+                "pointer_width=64",
+                "ext_suffix=\(extSuffix)",
+            ].joined(separator: "\n")
+            let pyo3ConfigPath = "/tmp/pyo3_config_\(platform.maturin_target.replacingOccurrences(of: "-", with: "_")).txt"
+            try pyo3ConfigContent.write(toFile: pyo3ConfigPath, atomically: true, encoding: .utf8)
+            env["PYO3_CONFIG_FILE"] = pyo3ConfigPath
+            
             env["OSX_SDKROOT"] = try Process.get_macos_sdk().string
             env["IOS_SDKROOT"] = ios_sdkroot.string
             env["PYTHONDIR"] = py_cache.python.string
             env["PYO3_CROSS_PYTHON_VERSION"] = py_cache.version
             env["SDKROOT"] = ios_sdkroot.string
             env["PYO3_CROSS_LIB_DIR"] = platform.py_maturin_framework(cached: py_cache).string
-            //env["OPENSSL_DIR"] = "/usr/local/Cellar/openssl@3/3.5.2"
             env[platform.cargo_target_key] = cargo_target.joined(separator: " ")
         }
         
@@ -173,7 +240,11 @@ public extension MaturinWheelProtocol {
             if let pypi_folder = try pip_download(name: pypi, version: version, output: target) {
                 
                 try await maturin_build(src: pypi_folder, target: platform.maturin_target, wheels: output, env: env)
-                try fix_wheel_name(root: output, fn: "\(pypi_folder.lastComponent)-cp313-cp313-\(platform.wheel_file_platform).whl", subfix: subfix)
+                // iOS: maturin already outputs the correct ios_13_0_arch_sdk wheel name.
+                // fix_wheel_name (host-arch suffix search) is only needed for Android.
+                if platform.get_sdk() == .android {
+                    try fix_wheel_name(root: output, fn: "\(pypi_folder.lastComponent)-cp313-cp313-\(platform.wheel_file_platform).whl", subfix: subfix)
+                }
             }
         case .url(_):
             break
