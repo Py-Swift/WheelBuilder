@@ -27,20 +27,26 @@ public final class Opencv: CiWheelProtocol {
             ].joined(separator: " ")
             // Two issues to fix for Android cross-compilation:
             //
-            // 1. skbuild imports numpy during CMake configuration to get its include path.
-            //    numpy imports ctypes, and ctypes/__init__.py from the Android PBS Python
-            //    tries to dlopen(libpython3.x.so) — an Android ELF binary that cannot be
-            //    loaded on macOS. Create a minimal macOS dylib at the expected path so
-            //    dlopen succeeds on the host.
+            // 1. opencv's cmake runs `execute_process(python -c "import numpy; print(...)")` to
+            //    detect the numpy include path. This fails because the PBS Android Python's
+            //    ctypes/__init__.py tries to dlopen(libpython3.x.so) — an Android ELF — which
+            //    cannot be loaded on macOS host. We bypass this by prepending cmake code to
+            //    OpenCVDetectPython.cmake that pre-sets PYTHON3_NUMPY_INCLUDE_DIRS from
+            //    scikit-build's Python3_NumPy_INCLUDE_DIRS (already passed via -D flag),
+            //    so opencv skips the execute_process check entirely.
             //
-            // 2. opencv's cmake tries to build/install Android sample APKs which need the
-            //    Android Java SDK (Gradle). Delete the Android samples directory before
-            //    the build to skip them cleanly without touching cmake flags.
+            // 2. opencv's cmake builds/installs Android sample APKs (e.g. 15-puzzle) which
+            //    require Gradle + Java SDK — not present on the macOS CI runner. We remove the
+            //    add_subdirectory(android) call from samples/CMakeLists.txt so those targets
+            //    are never created.
             env["CIBW_BEFORE_BUILD_ANDROID"] = """
                 PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \\
                 PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \\
                 mkdir -p "$PBS_LIB" && \\
                 printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
+                printf 'if(NOT DEFINED PYTHON3_NUMPY_INCLUDE_DIRS OR PYTHON3_NUMPY_INCLUDE_DIRS STREQUAL "")\\n  if(DEFINED Python3_NumPy_INCLUDE_DIRS AND NOT Python3_NumPy_INCLUDE_DIRS STREQUAL "")\\n    set(PYTHON3_NUMPY_INCLUDE_DIRS "${Python3_NumPy_INCLUDE_DIRS}" CACHE PATH "" FORCE)\\n  endif()\\nendif()\\n' > /tmp/np_patch.cmake && \\
+                cat /tmp/np_patch.cmake "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv/cmake/OpenCVDetectPython.cmake" > /tmp/OCV_tmp.cmake && \\
+                cp /tmp/OCV_tmp.cmake "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv/cmake/OpenCVDetectPython.cmake" 2>/dev/null || true; \\
                 sed -i.bak '/add_subdirectory.*android/d' "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv/samples/CMakeLists.txt" 2>/dev/null || true
                 """
         }
