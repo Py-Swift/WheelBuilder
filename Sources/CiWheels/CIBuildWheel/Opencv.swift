@@ -41,7 +41,7 @@ public final class Opencv: CiWheelProtocol {
                 PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \\
                 mkdir -p "$PBS_LIB" && \\
                 printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
-                find "${GITHUB_WORKSPACE}/output" -maxdepth 5 -type d -name android -path "*/opencv/samples/*" 2>/dev/null | xargs rm -rf 2>/dev/null || true
+                sed -i.bak '/add_subdirectory.*android/d' "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv/samples/CMakeLists.txt" 2>/dev/null || true
                 """
         }
         return env
