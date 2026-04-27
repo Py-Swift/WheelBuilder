@@ -24,7 +24,7 @@ public final class Numpy: MesonWheelProtocol {
         var env = try meson_env()
         env["CIBW_BEFORE_BUILD"] = ""
         if platform.get_sdk() == .android {
-            env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1"
+            env["CIBW_ENVIRONMENT_ANDROID"] = "NPY_DISABLE_SVML=1 PKG_CONFIG_PATH=\"\""
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=\(meson_cross_file_path) setup-args=-Dblas=none setup-args=-Dlapack=none"
             // Android requires two fixes:
             // 1. python-3.x.pc has "$(BLDLIBRARY)" (unexpanded Makefile var) — copy the

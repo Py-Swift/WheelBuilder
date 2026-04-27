@@ -70,8 +70,9 @@ public extension MesonWheelProtocol {
         if platform.get_sdk() == .android {
             env["CIBW_CONFIG_SETTINGS_ANDROID"] = "setup-args=--cross-file=\(meson_cross_file_path)"
             // Fix python-X.Y.pc which contains unexpanded $(BLDLIBRARY) Makefile var
-            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; done"
-        }
+            env["CIBW_BEFORE_BUILD_ANDROID"] = "PYPREFIX=$(dirname \"$CMAKE_TOOLCHAIN_FILE\")/python/prefix; for f in \"$PYPREFIX/lib/pkgconfig/python-\"*.pc; do [ -f \"$f\" ] && ! [ -L \"$f\" ] || continue; VER=$(basename \"$f\" | sed 's/python-//;s/\\.pc//'); sed -i '' \"s/\\$(BLDLIBRARY)/-lpython${VER}/g\" \"$f\"; done"            // Clear PKG_CONFIG_PATH so actions/setup-python's macOS Python pkgconfig
+            // does not shadow the android Python via PKG_CONFIG_LIBDIR (set by cibuildwheel).
+            env["CIBW_ENVIRONMENT_ANDROID"] = "PKG_CONFIG_PATH=\"\""        }
         return env
     }
 

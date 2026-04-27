@@ -21,8 +21,10 @@ public final class Pandas: MesonWheelProtocol {
             "LDFLAGS=\"\""
         ].joined(separator: " ")
         if platform.get_sdk() == .android {
-            // p4a: LDFLAGS += -landroid -lc++_shared (for symbols like _ZTVSt12length_error)
-            env["CIBW_ENVIRONMENT_ANDROID"] = "LDFLAGS=\"$LDFLAGS -landroid -lc++_shared\""
+            // p4a: LDFLAGS += -landroid -lc++_shared (for symbols like _ZTVSt12length_error).
+            // PKG_CONFIG_PATH="" prevents actions/setup-python's macOS Python pkgconfig from
+            // shadowing the android Python pkgconfig set via PKG_CONFIG_LIBDIR by cibuildwheel.
+            env["CIBW_ENVIRONMENT_ANDROID"] = "LDFLAGS=\"$LDFLAGS -landroid -lc++_shared\" PKG_CONFIG_PATH=\"\""
         }
         return env
     }

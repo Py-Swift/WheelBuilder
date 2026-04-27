@@ -14,7 +14,7 @@ public final class Matplotlib: MesonWheelProtocol {
         var env = try meson_env()
         if platform.get_sdk() == .android {
             // p4a: need_stl_shared=True, CXXFLAGS += -Wno-c++11-narrowing
-            env["CIBW_ENVIRONMENT_ANDROID"] = "CXXFLAGS=\"$CXXFLAGS -Wno-c++11-narrowing\""
+            env["CIBW_ENVIRONMENT_ANDROID"] = "CXXFLAGS=\"$CXXFLAGS -Wno-c++11-narrowing\" PKG_CONFIG_PATH=\"\""
         }
         return env
     }
