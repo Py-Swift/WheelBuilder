@@ -23,21 +23,25 @@ public final class Opencv: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = [
                 "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
                 "CI_BUILD=\"1\"",
-                "PKG_CONFIG_PATH=\"\"",
-                // Disable Android Java SDK samples which require a Gradle/Java toolchain
-                // not present on the CI macOS runner.
-                "CMAKE_ARGS=\"-DBUILD_ANDROID_PROJECTS=OFF -DBUILD_JAVA=OFF -DBUILD_ANDROID_EXAMPLES=OFF\""
+                "PKG_CONFIG_PATH=\"\""
             ].joined(separator: " ")
-            // skbuild (used by opencv-python) imports numpy during CMake configuration to
-            // get its include path. numpy imports ctypes, and ctypes/__init__.py from the
-            // Android PBS Python tries to dlopen(libpython3.x.so) — an Android ELF binary
-            // that cannot be loaded on macOS. Create a minimal macOS dylib at the expected
-            // path so dlopen succeeds on the host without loading the real Android library.
+            // Two issues to fix for Android cross-compilation:
+            //
+            // 1. skbuild imports numpy during CMake configuration to get its include path.
+            //    numpy imports ctypes, and ctypes/__init__.py from the Android PBS Python
+            //    tries to dlopen(libpython3.x.so) — an Android ELF binary that cannot be
+            //    loaded on macOS. Create a minimal macOS dylib at the expected path so
+            //    dlopen succeeds on the host.
+            //
+            // 2. opencv's cmake tries to build/install Android sample APKs which need the
+            //    Android Java SDK (Gradle). Delete the Android samples directory before
+            //    the build to skip them cleanly without touching cmake flags.
             env["CIBW_BEFORE_BUILD_ANDROID"] = """
-                PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \
-                PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \
-                mkdir -p "$PBS_LIB" && \
-                printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true
+                PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \\
+                PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \\
+                mkdir -p "$PBS_LIB" && \\
+                printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
+                rm -rf opencv/samples/android 2>/dev/null || true
                 """
         }
         return env
