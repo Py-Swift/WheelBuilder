@@ -27,10 +27,14 @@ public final class Cryptography: MaturinWheelProtocol {
             //
             // --skip-dependency-check prevents python -m build --no-isolation from trying
             // to re-install cffi/setuptools via the iOS-tagged pip (which would fail again).
+            // pip install --no-deps still checks platform tags (rejects macOS wheel in the
+            // iOS-tagged venv). Bypass pip entirely: extract the wheel (it's just a zip)
+            // directly into site-packages. The venv Python IS a macOS Python so the macOS
+            // cffi .so works at runtime.
             let beforeBuild = [
                 "pip install maturin setuptools",
                 "pip download cffi --platform macosx_14_0_arm64 --python-version 313 --only-binary :all: -d /tmp/cffi_wheels",
-                "pip install --no-deps /tmp/cffi_wheels/cffi*.whl"
+                "python -c 'import site, zipfile, glob; whl = glob.glob(\"/tmp/cffi_wheels/cffi*.whl\")[0]; sp = site.getsitepackages()[0]; zipfile.ZipFile(whl).extractall(sp)'"
             ].joined(separator: " && ")
             env["CIBW_BEFORE_BUILD"] = beforeBuild
             env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation --skip-dependency-check"
