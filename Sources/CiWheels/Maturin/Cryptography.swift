@@ -15,12 +15,13 @@ public final class Cryptography: MaturinWheelProtocol {
         var env = try maturin_env()
         env["OPENSSL_DIR"] = (root + "openssl/\(platform.sdk_arch)").string
         if platform.get_sdk() != .android {
-            // cffi requires compiling a C extension (_cffi_backend.c) that needs ffi.h from
-            // libffi, which is not available in the iOS cross-build environment.
-            // cffi is a runtime dependency only — maturin's build process does not import it.
-            // Use --skip-dependency-check to let python -m build proceed without cffi installed.
-            // setuptools is pure Python and installs fine; maturin compiles OK for iOS targets.
-            env["CIBW_BEFORE_BUILD"] = "pip install maturin setuptools"
+            // CIBW_BEFORE_BUILD runs with the HOST (macOS) pip, so cffi installs as a macOS
+            // binary wheel (not cross-compiled for iOS). We then use --skip-dependency-check
+            // to prevent python -m build from re-installing cffi via the iOS-tagged pip
+            // (which would try to compile _cffi_backend.c for iOS, failing at ffi.h not found).
+            // With cffi installed (macOS binary) and re-installation skipped, cargo's
+            // build_openssl.py can import cffi successfully on the HOST macOS machine.
+            env["CIBW_BEFORE_BUILD"] = "pip install maturin cffi setuptools"
             env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation --skip-dependency-check"
         }
         return env
