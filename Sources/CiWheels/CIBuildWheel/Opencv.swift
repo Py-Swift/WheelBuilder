@@ -26,29 +26,22 @@ public final class Opencv: CiWheelProtocol {
                 "CI_BUILD=\"1\"",
                 "PKG_CONFIG_PATH=\"\""
             ].joined(separator: " ")
-            // Three patches for Android cross-compilation:
+            // Patches for Android cross-compilation:
             //
-            // 1. skbuild / ctypes dlopen fix: PBS Android Python's ctypes/__init__.py does
+            // 1. ctypes dlopen fix: PBS Android Python's ctypes/__init__.py does
             //    dlopen(libpython3.x.so) — an Android ELF that can't load on macOS.
-            //    Create a dummy macOS dylib at the expected path so the dlopen succeeds.
+            //    Create a dummy macOS dylib at the expected path so dlopen succeeds.
             //
-            // 2. PYTHON3_INCLUDE_PATH + PYTHON3_NUMPY_INCLUDE_DIRS missing for Android.
-            //    Root cause: find_python() uses CACHE INTERNAL (which in cmake <3.21 had
-            //    implicit FORCE, but even in >=3.21 a fresh entry IS created as ""). For
-            //    Android it skips find_package(PythonLibs) so PYTHON3_INCLUDE_PATH stays "".
-            //    It also skips numpy detection so PYTHON3_NUMPY_INCLUDE_DIRS stays "".
-            //    scikit-build passes the correct paths via -D flags but under different names:
-            //      PYTHON3_INCLUDE_DIR  (not PYTHON3_INCLUDE_PATH)
-            //      Python3_NumPy_INCLUDE_DIRS (not PYTHON3_NUMPY_INCLUDE_DIRS, case differs)
-            //    Fix: APPEND to OpenCVDetectPython.cmake AFTER all find_python() calls.
-            //    Running after find_python ensures we overwrite its empty terminal writes.
-            //    Use Python3_INCLUDE_DIR (scikit-build mixed-case, :PATH type, NOT touched by
-            //    find_python) instead of PYTHON3_INCLUDE_DIR (all-caps, no type on -D flag,
-            //    which find_python may overwrite via type-promotion set() without FORCE).
+            // 2. PYTHON3_INCLUDE_PATH fix: opencv's find_python() skips include-path
+            //    detection entirely for Android (guarded by NOT ANDROID), so
+            //    PYTHON3_INCLUDE_PATH stays "". opencv's modules/python/python3/
+            //    CMakeLists.txt then disables the python3 module.
+            //    Fix: prepend hardcoded set() calls to that CMakeLists.txt using paths
+            //    computed from sysconfig/numpy on the host PBS Python, so the check
+            //    passes regardless of how cmake resolves -D hint variables.
             //
-            // 3. Android sample APKs: opencv's cmake includes sample APK targets (15-puzzle
-            //    etc.) that need Gradle + Java SDK — not present on the CI runner. Remove the
-            //    add_subdirectory(android) line from samples/CMakeLists.txt.
+            // 3. Android sample APKs need Gradle + Java — not on the CI runner. Remove
+            //    add_subdirectory(android) from opencv/samples/CMakeLists.txt.
             env["CIBW_BEFORE_BUILD_ANDROID"] = """
                 OCV="${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv"; \\
                 PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \\
@@ -56,20 +49,14 @@ public final class Opencv: CiWheelProtocol {
                 mkdir -p "$PBS_LIB" && \\
                 printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
                 rm -rf "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/_skbuild" 2>/dev/null || true; \\
-                printf '%s\\n' \\
-                  '# Cross-compile fallback: set opencv Python vars from scikit-build -D vars.' \\
-                  '# Runs AFTER find_python() so it overwrites its empty terminal writes.' \\
-                  '# PYTHON3_INCLUDE_PATH  <- Python3_INCLUDE_DIR (scikit-build mixed-case var,' \\
-                  '#   passed with :PATH type, NOT touched by find_python unlike PYTHON3_INCLUDE_DIR)' \\
-                  '# PYTHON3_NUMPY_INCLUDE_DIRS <- Python3_NumPy_INCLUDE_DIRS (scikit-build,' \\
-                  '#   note capitalization difference vs opencvs all-caps variable)' \\
-                  'if(NOT PYTHON3_INCLUDE_PATH AND Python3_INCLUDE_DIR)' \\
-                  '  set(PYTHON3_INCLUDE_PATH "${Python3_INCLUDE_DIR}" CACHE INTERNAL "" FORCE)' \\
-                  'endif()' \\
-                  'if(NOT PYTHON3_NUMPY_INCLUDE_DIRS AND Python3_NumPy_INCLUDE_DIRS)' \\
-                  '  set(PYTHON3_NUMPY_INCLUDE_DIRS "${Python3_NumPy_INCLUDE_DIRS}" CACHE PATH "" FORCE)' \\
-                  'endif()' \\
-                  >> "$OCV/cmake/OpenCVDetectPython.cmake" 2>/dev/null || true; \\
+                PYINC=$(python -c "import sysconfig; print(sysconfig.get_path('include'))") && \\
+                NUMPYINC=$(python -c "import numpy; print(numpy.get_include())") && \\
+                PY3_CMAKE="$OCV/modules/python/python3/CMakeLists.txt" && \\
+                if [ -f "$PY3_CMAKE" ]; then \\
+                  grep -vE '^# WheelBuilder|^set[(]PYTHON3_INCLUDE_PATH|^set[(]PYTHON3_NUMPY_INCLUDE_DIRS' "$PY3_CMAKE" > /tmp/_wb_py3_body.cmake 2>/dev/null || cp "$PY3_CMAKE" /tmp/_wb_py3_body.cmake; \\
+                  printf '# WheelBuilder Android fix\\nset(PYTHON3_INCLUDE_PATH "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_NUMPY_INCLUDE_DIRS "%s" CACHE PATH "" FORCE)\\n' "$PYINC" "$NUMPYINC" > /tmp/_wb_py3_fix.cmake && \\
+                  cat /tmp/_wb_py3_fix.cmake /tmp/_wb_py3_body.cmake > "$PY3_CMAKE"; \\
+                fi; \\
                 sed -i.bak '/add_subdirectory.*android/d' "$OCV/samples/CMakeLists.txt" 2>/dev/null || true
                 """
         }
