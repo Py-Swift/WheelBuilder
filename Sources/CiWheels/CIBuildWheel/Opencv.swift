@@ -24,12 +24,7 @@ public final class Opencv: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = [
                 "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
                 "CI_BUILD=\"1\"",
-                "PKG_CONFIG_PATH=\"\"",
-                // Pass an initial cmake cache file (written by CIBW_BEFORE_BUILD_ANDROID).
-                // scikit-build appends CMAKE_ARGS to the cmake command; -C loads the file
-                // before any CMakeLists.txt processing, so FORCE-set values there survive
-                // find_python's subsequent non-FORCE cache writes.
-                "CMAKE_ARGS=\"-C /tmp/ocv_android_cache.cmake\""
+                "PKG_CONFIG_PATH=\"\""
             ].joined(separator: " ")
             // Three patches for Android cross-compilation:
             //
@@ -37,13 +32,22 @@ public final class Opencv: CiWheelProtocol {
             //    dlopen(libpython3.x.so) — an Android ELF that can't load on macOS.
             //    Create a dummy macOS dylib at the expected path so the dlopen succeeds.
             //
-            // 2. cmake initial cache (-C): opencv skips find_package(PythonLibs) for Android
-            //    so PYTHON3_INCLUDE_PATH and PYTHON3_NUMPY_INCLUDE_DIRS never get set.
-            //    Compute the actual paths from the live Python in before_build and write a
-            //    cmake initial-cache script (set ... CACHE ... FORCE) to /tmp.  scikit-build
-            //    appends CMAKE_ARGS="-C /tmp/ocv_android_cache.cmake" to the cmake invocation;
-            //    the -C file is processed at cmake startup with FORCE, before any module's
-            //    CMakeLists.txt runs, and find_python's non-FORCE writes cannot clear them.
+            // 2. PYTHON3_NUMPY_INCLUDE_DIRS + PYTHON3_INCLUDE_PATH missing for Android.
+            //    Root cause: opencv's cmake skips find_package(PythonLibs) for Android, so
+            //    PYTHON3_INCLUDE_PATH ends up empty.  The numpy detection is also inside
+            //    "if(NOT ANDROID AND NOT IOS AND NOT XROS)" so PYTHON3_NUMPY_INCLUDE_DIRS
+            //    also ends up empty.  At the end of find_python() both are written back with
+            //    set(... CACHE INTERNAL ""), and INTERNAL type has IMPLICIT FORCE in cmake,
+            //    meaning any pre-set (initial cache -C or prepended cmake code) is always
+            //    overridden by find_python's terminal write.
+            //
+            //    Fix strategy:
+            //    - PYTHON3_NUMPY_INCLUDE_DIRS: PREPEND fix to OpenCVDetectPython.cmake —
+            //      works because find_python uses CACHE PATH (no implicit force) for numpy,
+            //      so the pre-set FORCE survives.
+            //    - PYTHON3_INCLUDE_PATH: APPEND fix to OpenCVDetectPython.cmake AFTER all
+            //      find_python() calls — runs after find_python's implicit-FORCE write,
+            //      overriding the empty value with the correct path.
             //
             // 3. Android sample APKs: opencv's cmake includes sample APK targets (15-puzzle
             //    etc.) that need Gradle + Java SDK — not present on the CI runner. Remove the
@@ -54,13 +58,22 @@ public final class Opencv: CiWheelProtocol {
                 PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \\
                 mkdir -p "$PBS_LIB" && \\
                 printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
-                VENV_PARENT=$(python -c "import sys,os; print(os.path.dirname(sys.prefix))") && \\
-                ANDROID_PY_INC="$VENV_PARENT/python/prefix/include/python${PYVER}" && \\
                 NUMPY_INC=$(python -c "import numpy; print(numpy.get_include())") && \\
                 printf '%s\\n' \\
-                  "set(PYTHON3_INCLUDE_PATH \\"$ANDROID_PY_INC\\" CACHE INTERNAL \\"\\" FORCE)" \\
-                  "set(PYTHON3_NUMPY_INCLUDE_DIRS \\"$NUMPY_INC\\" CACHE PATH \\"\\" FORCE)" \\
-                  > /tmp/ocv_android_cache.cmake; \\
+                  'if(Python3_NumPy_INCLUDE_Dirs AND NOT PYTHON3_NUMPY_INCLUDE_DIRS)' \\
+                  '  set(PYTHON3_NUMPY_INCLUDE_DIRS "${Python3_NumPy_INCLUDE_Dirs}" CACHE PATH "" FORCE)' \\
+                  'endif()' > /tmp/ocv_np.cmake && \\
+                cat /tmp/ocv_np.cmake "$OCV/cmake/OpenCVDetectPython.cmake" > /tmp/ocv_np_tmp.cmake && \\
+                cp /tmp/ocv_np_tmp.cmake "$OCV/cmake/OpenCVDetectPython.cmake" 2>/dev/null || true; \\
+                VENV_PARENT=$(python -c "import sys,os; print(os.path.dirname(sys.prefix))") && \\
+                ANDROID_PY_INC="$VENV_PARENT/python/prefix/include/python${PYVER}" && \\
+                printf '%s\\n' \\
+                  '# Android cross-compile: set PYTHON3_INCLUDE_PATH AFTER find_python() so' \\
+                  '# our FORCE-write beats find_pythons implicit-FORCE INTERNAL terminal write' \\
+                  'if(ANDROID AND PYTHON3_INCLUDE_DIR)' \\
+                  '  set(PYTHON3_INCLUDE_PATH "${PYTHON3_INCLUDE_DIR}" CACHE INTERNAL "" FORCE)' \\
+                  'endif()' \\
+                  >> "$OCV/cmake/OpenCVDetectPython.cmake" 2>/dev/null || true; \\
                 sed -i.bak '/add_subdirectory.*android/d' "$OCV/samples/CMakeLists.txt" 2>/dev/null || true
                 """
         }
