@@ -42,8 +42,9 @@ public final class Opencv: CiWheelProtocol {
             //      Python3_NumPy_INCLUDE_DIRS (not PYTHON3_NUMPY_INCLUDE_DIRS, case differs)
             //    Fix: APPEND to OpenCVDetectPython.cmake AFTER all find_python() calls.
             //    Running after find_python ensures we overwrite its empty terminal writes.
-            //    Conditions are WITHOUT an ANDROID guard so they work regardless of whether
-            //    cmake's ANDROID variable is set (depends on whether NDK toolchain is used).
+            //    Use Python3_INCLUDE_DIR (scikit-build mixed-case, :PATH type, NOT touched by
+            //    find_python) instead of PYTHON3_INCLUDE_DIR (all-caps, no type on -D flag,
+            //    which find_python may overwrite via type-promotion set() without FORCE).
             //
             // 3. Android sample APKs: opencv's cmake includes sample APK targets (15-puzzle
             //    etc.) that need Gradle + Java SDK — not present on the CI runner. Remove the
@@ -58,11 +59,12 @@ public final class Opencv: CiWheelProtocol {
                 printf '%s\\n' \\
                   '# Cross-compile fallback: set opencv Python vars from scikit-build -D vars.' \\
                   '# Runs AFTER find_python() so it overwrites its empty terminal writes.' \\
-                  '# PYTHON3_INCLUDE_PATH  <- PYTHON3_INCLUDE_DIR (scikit-build variable)' \\
+                  '# PYTHON3_INCLUDE_PATH  <- Python3_INCLUDE_DIR (scikit-build mixed-case var,' \\
+                  '#   passed with :PATH type, NOT touched by find_python unlike PYTHON3_INCLUDE_DIR)' \\
                   '# PYTHON3_NUMPY_INCLUDE_DIRS <- Python3_NumPy_INCLUDE_DIRS (scikit-build,' \\
                   '#   note capitalization difference vs opencvs all-caps variable)' \\
-                  'if(NOT PYTHON3_INCLUDE_PATH AND PYTHON3_INCLUDE_DIR)' \\
-                  '  set(PYTHON3_INCLUDE_PATH "${PYTHON3_INCLUDE_DIR}" CACHE INTERNAL "" FORCE)' \\
+                  'if(NOT PYTHON3_INCLUDE_PATH AND Python3_INCLUDE_DIR)' \\
+                  '  set(PYTHON3_INCLUDE_PATH "${Python3_INCLUDE_DIR}" CACHE INTERNAL "" FORCE)' \\
                   'endif()' \\
                   'if(NOT PYTHON3_NUMPY_INCLUDE_DIRS AND Python3_NumPy_INCLUDE_DIRS)' \\
                   '  set(PYTHON3_NUMPY_INCLUDE_DIRS "${Python3_NumPy_INCLUDE_DIRS}" CACHE PATH "" FORCE)' \\
