@@ -15,13 +15,24 @@ public final class Cryptography: MaturinWheelProtocol {
         var env = try maturin_env()
         env["OPENSSL_DIR"] = (root + "openssl/\(platform.sdk_arch)").string
         if platform.get_sdk() != .android {
-            // CIBW_BEFORE_BUILD runs with the HOST (macOS) pip, so cffi installs as a macOS
-            // binary wheel (not cross-compiled for iOS). We then use --skip-dependency-check
-            // to prevent python -m build from re-installing cffi via the iOS-tagged pip
-            // (which would try to compile _cffi_backend.c for iOS, failing at ffi.h not found).
-            // With cffi installed (macOS binary) and re-installation skipped, cargo's
-            // build_openssl.py can import cffi successfully on the HOST macOS machine.
-            env["CIBW_BEFORE_BUILD"] = "pip install maturin cffi setuptools"
+            // CIBW_BEFORE_BUILD runs inside the iOS cross-build venv whose pip has iOS
+            // platform tags. Installing maturin works (maturin's Rust build compiles fine
+            // for iOS), but cffi has a C extension (_cffi_backend.c) that requires ffi.h
+            // which is not available in the iOS SDK — so "pip install cffi" would fail.
+            //
+            // Instead, we download the macOS arm64 binary wheel for cffi and install it
+            // without platform checks. The venv's Python interpreter IS a macOS Python, so
+            // the macOS cffi wheel is fully functional at runtime for HOST-side scripts like
+            // build_openssl.py. We also add setuptools the same way.
+            //
+            // --skip-dependency-check prevents python -m build --no-isolation from trying
+            // to re-install cffi/setuptools via the iOS-tagged pip (which would fail again).
+            let beforeBuild = [
+                "pip install maturin setuptools",
+                "pip download cffi --platform macosx_14_0_arm64 --python-version 313 --only-binary :all: -d /tmp/cffi_wheels",
+                "pip install --no-deps /tmp/cffi_wheels/cffi*.whl"
+            ].joined(separator: " && ")
+            env["CIBW_BEFORE_BUILD"] = beforeBuild
             env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation --skip-dependency-check"
         }
         return env
