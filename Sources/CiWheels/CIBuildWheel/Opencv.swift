@@ -23,7 +23,10 @@ public final class Opencv: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = [
                 "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
                 "CI_BUILD=\"1\"",
-                "PKG_CONFIG_PATH=\"\""
+                "PKG_CONFIG_PATH=\"\"",
+                // Disable Android Java SDK samples which require a Gradle/Java toolchain
+                // not present on the CI macOS runner.
+                "CMAKE_ARGS=\"-DBUILD_ANDROID_PROJECTS=OFF -DBUILD_JAVA=OFF -DBUILD_ANDROID_EXAMPLES=OFF\""
             ].joined(separator: " ")
             // skbuild (used by opencv-python) imports numpy during CMake configuration to
             // get its include path. numpy imports ctypes, and ctypes/__init__.py from the
