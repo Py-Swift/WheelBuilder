@@ -24,7 +24,12 @@ public final class Opencv: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = [
                 "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
                 "CI_BUILD=\"1\"",
-                "PKG_CONFIG_PATH=\"\""
+                "PKG_CONFIG_PATH=\"\"",
+                // cmake preload file (written by BEFORE_BUILD) pre-populates the
+                // cache with PYTHON3_INCLUDE_PATH and PYTHON3_NUMPY_INCLUDE_DIRS
+                // before any cmake code runs — find_python() skips these for Android
+                // and its set(...CACHE...) without FORCE can't override pre-cached values.
+                "CMAKE_ARGS=\"-C /tmp/cibw_ocv_preload.cmake\""
             ].joined(separator: " ")
             // Patches for Android cross-compilation:
             //
@@ -32,13 +37,16 @@ public final class Opencv: CiWheelProtocol {
             //    dlopen(libpython3.x.so) — an Android ELF that can't load on macOS.
             //    Create a dummy macOS dylib at the expected path so dlopen succeeds.
             //
-            // 2. PYTHON3_INCLUDE_PATH fix: opencv's find_python() skips include-path
-            //    detection entirely for Android (guarded by NOT ANDROID), so
-            //    PYTHON3_INCLUDE_PATH stays "". opencv's modules/python/python3/
-            //    CMakeLists.txt then disables the python3 module.
-            //    Fix: prepend hardcoded set() calls to that CMakeLists.txt using paths
-            //    computed from sysconfig/numpy on the host PBS Python, so the check
-            //    passes regardless of how cmake resolves -D hint variables.
+            // 2. PYTHON3_INCLUDE_PATH / PYTHON3_NUMPY_INCLUDE_DIRS:
+            //    opencv's find_python() skips include-path and numpy detection for
+            //    Android (guarded by `if(NOT ANDROID AND NOT APPLE_FRAMEWORK)`), so
+            //    both variables stay "". The iOS patch in setup.py already handles
+            //    this for iOS by passing cmake -D flags; we do the same for Android
+            //    via a cmake preload file (-C flag), which is loaded BEFORE any
+            //    CMakeLists.txt code — find_python()'s set(... CACHE) without FORCE
+            //    cannot override entries already in the cache from the preload.
+            //    Paths are computed from the active PBS Python (sysconfig/numpy)
+            //    which is the same Python cmake sees via -DPYTHON_INCLUDE_DIR.
             //
             // 3. Android sample APKs need Gradle + Java — not on the CI runner. Remove
             //    add_subdirectory(android) from opencv/samples/CMakeLists.txt.
@@ -49,14 +57,11 @@ public final class Opencv: CiWheelProtocol {
                 mkdir -p "$PBS_LIB" && \\
                 printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
                 rm -rf "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/_skbuild" 2>/dev/null || true; \\
-                PYINC=$(python -c "import sysconfig; print(sysconfig.get_path('include'))") && \\
-                NUMPYINC=$(python -c "import numpy; print(numpy.get_include())") && \\
-                PY3_CMAKE="$OCV/modules/python/python3/CMakeLists.txt" && \\
-                if [ -f "$PY3_CMAKE" ]; then \\
-                  grep -vE '^# WheelBuilder|^set[(]PYTHON3_INCLUDE_PATH|^set[(]PYTHON3_NUMPY_INCLUDE_DIRS' "$PY3_CMAKE" > /tmp/_wb_py3_body.cmake 2>/dev/null || cp "$PY3_CMAKE" /tmp/_wb_py3_body.cmake; \\
-                  printf '# WheelBuilder Android fix\\nset(PYTHON3_INCLUDE_PATH "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_NUMPY_INCLUDE_DIRS "%s" CACHE PATH "" FORCE)\\n' "$PYINC" "$NUMPYINC" > /tmp/_wb_py3_fix.cmake && \\
-                  cat /tmp/_wb_py3_fix.cmake /tmp/_wb_py3_body.cmake > "$PY3_CMAKE"; \\
-                fi; \\
+                PYINC=$(python -c "import sysconfig; print(sysconfig.get_path('include'))"); \\
+                NUMPYINC=$(python -c "import numpy; print(numpy.get_include())"); \\
+                echo "[WheelBuilder] PYINC=$PYINC"; \\
+                echo "[WheelBuilder] NUMPYINC=$NUMPYINC"; \\
+                printf 'set(PYTHON3_INCLUDE_PATH "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_NUMPY_INCLUDE_DIRS "%s" CACHE PATH "" FORCE)\\n' "$PYINC" "$NUMPYINC" > /tmp/cibw_ocv_preload.cmake; \\
                 sed -i.bak '/add_subdirectory.*android/d' "$OCV/samples/CMakeLists.txt" 2>/dev/null || true
                 """
         }
