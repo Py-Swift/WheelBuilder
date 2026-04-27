@@ -95,36 +95,6 @@ jobs:
     name: Upload to Anaconda
     needs: [build]
     if: needs.build.outputs.needs_upload == 'true'
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/anaconda-upload.yml
+    secrets: inherit
 
-    steps:
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: wheels-output
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13.8'
-
-      - name: install anaconda client
-        run: |
-          pip install anaconda-client anaconda-auth
-          
-      - name: publish-to-anaconda
-        continue-on-error: true
-        run: |
-          anaconda login \
-              --at anaconda.org \
-              --username ${{ secrets.ANACONDA_USER }} \
-              --password "${{ secrets.ANACONDA_PASS }}"
-          cd wheels
-          for FILE in *
-          do
-            anaconda upload --force $FILE
-          done
-      - name: Anaconda logout
-        run: anaconda logout --at anaconda.org
-      
-
-          
