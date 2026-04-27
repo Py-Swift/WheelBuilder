@@ -27,20 +27,6 @@ struct WheelBuilderCLI: AsyncParsableCommand {
     
 }
 
-fileprivate func py_versions() async throws -> [CachedPython] {
-    let pys = [
-        ("3.13", "b12"),
-        ("3.14", "b8")
-    ]
-    var output = [CachedPython]()
-    for (ver, build) in pys {
-        let cached = CachedPython()
-        try await cached.download(version: ver, build: build)
-    }
-    return output
-}
-
-
 extension WheelBuilderCLI {
     
     struct ActionBuild: AsyncParsableCommand {
@@ -79,10 +65,7 @@ extension WheelBuilderCLI {
             
             switch wheel {
             case let maturin as MaturinWheelProtocol.Type:
-                
-                for py_cache in try await py_versions() {
-                    try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: platform, wheel_output: .init(output))
-                }
+                try await buildMaturinWheels(wheel: maturin, platform: platform, wheel_output: .init(output))
             case let ciwheel as CiWheelProtocol.Type:
                 try await buildCiWheels(wheel: ciwheel, platform: platform, wheel_output: .init(output))
                 
@@ -117,13 +100,9 @@ extension WheelBuilderCLI {
         func build(wheel: any WheelProtocol.Type) async throws {
             switch wheel {
             case let maturin as MaturinWheelProtocol.Type:
-                
-                let py_cache = CachedPython()
-                try await py_cache.download(version: "3.13", build: "b10")
                 try await buildMaturinWheels(
                     wheel: maturin,
                     version: version,
-                    py_cache: py_cache,
                     platform: platform,
                     wheel_output: .init(output)
                 )
@@ -162,10 +141,7 @@ extension WheelBuilderCLI {
         func build(wheel: any WheelProtocol.Type) async throws {
             switch wheel {
             case let maturin as MaturinWheelProtocol.Type:
-                
-                let py_cache = CachedPython()
-                try await py_cache.download(version: "3.13", build: "b10")
-                try await buildMaturinWheels(wheel: maturin, py_cache: py_cache, platform: platform, wheel_output: .init(output))
+                try await buildMaturinWheels(wheel: maturin, platform: platform, wheel_output: .init(output))
                 
             case let ciwheel as CiWheelProtocol.Type:
                 try await buildCiWheels(wheel: ciwheel, platform: platform, wheel_output: .init(output))

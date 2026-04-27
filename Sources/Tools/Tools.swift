@@ -110,9 +110,10 @@ public func git_apply(file: Path, target: Path) async throws {
     let proc = Process()
     
     proc.executablePath = .git
+    proc.currentDirectoryURL = target.url
     
     proc.arguments = [
-        "apply", "--directory=\(target.string)", file.string
+        "apply", "--no-index", file.string
     ]
     
     try proc.run()

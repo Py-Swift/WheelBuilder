@@ -57,7 +57,7 @@ public func buildCiWheels(wheel: any CiWheelProtocol.Type, version: String? = ni
 }
 
 
-public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: String? = nil, py_cache: CachedPython, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
+public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: String? = nil, platform filter: BuildPlatform? = nil, wheel_output: Path) async throws {
     try await withTemp { working_dir in
         let platforms = try resolvePlatforms(filter, wheel_type: wheel)
         
@@ -70,20 +70,8 @@ public func buildMaturinWheels(wheel: any MaturinWheelProtocol.Type, version: St
                 try await lib.build_library_platform(working_dir: working_dir)
                 try await lib.post_build_library(working_dir: working_dir)
             }
-            //continue
             
-            let subfix = switch CpuArchitecture.current() ?? .intel64 {
-            case .arm64: "arm64"
-            case .intel64: "x86_64"
-            default: "x86_64"
-            }
-            
-            try await wheel.build_wheel(
-                target: working_dir,
-                py_cache: py_cache,
-                output: wheel_output,
-                subfix: "_\(subfix).whl"
-            )
+            try await wheel.build_wheel(working_dir: working_dir, version: version, wheels_dir: wheel_output)
         }
     }
 }

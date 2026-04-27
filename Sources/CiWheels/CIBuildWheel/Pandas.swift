@@ -8,14 +8,12 @@ import Foundation
 import Tools
 
 @WheelClass
-public final class Pandas: CiWheelProtocol {
+public final class Pandas: MesonWheelProtocol {
     
     public func env() throws -> [String : String] {
-        var env = base_env()
-        env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
-        env["CIBW_TEST_COMMAND_IOS"] = ""
+        var env = try meson_env()
         env["CIBW_BEFORE_BUILD_IOS"] = "env -u SDKROOT -u IPHONEOS_DEPLOYMENT_TARGET pip install numpy meson-python meson Cython"
-        env["CIBW_CONFIG_SETTINGS_IOS"] = "setup-args=--cross-file=ios-meson-cross.ini setup-args=--native-file=ios-meson-native.ini"
+        env["CIBW_CONFIG_SETTINGS_IOS"] = "setup-args=--cross-file=/tmp/pandas-ios-meson-cross.ini setup-args=--native-file=/tmp/pandas-ios-meson-native.ini"
         env["CIBW_ENVIRONMENT_IOS"] = [
             "PIP_EXTRA_INDEX_URL=\"https://pypi.anaconda.org/pyswift/simple\"",
             "PIP_PREFER_BINARY=\"1\"",
@@ -38,12 +36,21 @@ public final class Pandas: CiWheelProtocol {
     public func apply_patches(target: Path, working_dir: Path) async throws {
         for url in patches() {
             let patch_file = try await downloadURL(url: url, to: working_dir)
-            
             try await git_apply(file: patch_file, target: target)
+        }
+        // The patch adds ini/sh files to the source tree that are only
+        // needed in /tmp/ (written by pre_build). Remove them so that
+        // cibuildwheel's re-archive doesn't produce absolute-path tar entries.
+        for name in ["ios-meson-cross.ini", "ios-meson-native.ini",
+                     "ios-native-cc.sh", "ios-native-cxx.sh"] {
+            try? (target + name).delete()
         }
     }
 
     public func pre_build(target: Path) async throws {
+        try write_meson_cross_file()
+        guard platform.get_sdk() != .android else { return }
+
         let crossIni = """
             ; Supplementary meson cross-file for iOS builds.
             ; Tells meson that cross-compiled binaries cannot run on the build host,
@@ -63,19 +70,16 @@ public final class Pandas: CiWheelProtocol {
             ; so the build-machine compiler targets macOS, not iOS.
 
             [binaries]
-            c = '/tmp/ios-native-cc.sh'
-            cpp = '/tmp/ios-native-cxx.sh'
-            objc = '/tmp/ios-native-cc.sh'
-            objcpp = '/tmp/ios-native-cxx.sh'
+            c = '/tmp/pandas-ios-native-cc.sh'
+            cpp = '/tmp/pandas-ios-native-cxx.sh'
+            objc = '/tmp/pandas-ios-native-cc.sh'
+            objcpp = '/tmp/pandas-ios-native-cxx.sh'
             ar = '/usr/bin/ar'
             strip = '/usr/bin/strip'
             """
 
         let nativeCc = """
             #!/bin/bash
-            # Wrapper for native (build-machine) C compiler during iOS cross-compilation.
-            # Unsets iOS-related env vars that contaminate the cross-venv, forcing
-            # the compiler to target macOS instead of iOS.
             unset SDKROOT
             unset IPHONEOS_DEPLOYMENT_TARGET
             exec /usr/bin/cc "$@"
@@ -83,24 +87,21 @@ public final class Pandas: CiWheelProtocol {
 
         let nativeCxx = """
             #!/bin/bash
-            # Wrapper for native (build-machine) C++ compiler during iOS cross-compilation.
-            # Unsets iOS-related env vars that contaminate the cross-venv, forcing
-            # the compiler to target macOS instead of iOS.
             unset SDKROOT
             unset IPHONEOS_DEPLOYMENT_TARGET
             exec /usr/bin/c++ "$@"
             """
 
-        try (target + "ios-meson-cross.ini").write(crossIni)
-        try (target + "ios-meson-native.ini").write(nativeIni)
-        try (target + "ios-native-cc.sh").write(nativeCc)
-        try (target + "ios-native-cxx.sh").write(nativeCxx)
+        try Path("/tmp/pandas-ios-meson-cross.ini").write(crossIni)
+        try Path("/tmp/pandas-ios-meson-native.ini").write(nativeIni)
+        try Path("/tmp/pandas-ios-native-cc.sh").write(nativeCc)
+        try Path("/tmp/pandas-ios-native-cxx.sh").write(nativeCxx)
 
         let chmod = Process()
         chmod.executableURL = URL(filePath: "/bin/chmod")
         chmod.arguments = ["+x",
-            (target + "ios-native-cc.sh").string,
-            (target + "ios-native-cxx.sh").string
+            "/tmp/pandas-ios-native-cc.sh",
+            "/tmp/pandas-ios-native-cxx.sh"
         ]
         try chmod.run()
         chmod.waitUntilExit()
