@@ -19,6 +19,24 @@ public final class Opencv: CiWheelProtocol {
             "CMAKE_ARGS=\"-DCMAKE_OSX_SYSROOT=$(xcrun --sdk \(platform.sdk) --show-sdk-path)\""
         ].joined(separator: " ")
         env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
+        if platform.get_sdk() == .android {
+            env["CIBW_ENVIRONMENT_ANDROID"] = [
+                "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
+                "CI_BUILD=\"1\"",
+                "PKG_CONFIG_PATH=\"\""
+            ].joined(separator: " ")
+            // skbuild (used by opencv-python) imports numpy during CMake configuration to
+            // get its include path. numpy imports ctypes, and ctypes/__init__.py from the
+            // Android PBS Python tries to dlopen(libpython3.x.so) — an Android ELF binary
+            // that cannot be loaded on macOS. Create a minimal macOS dylib at the expected
+            // path so dlopen succeeds on the host without loading the real Android library.
+            env["CIBW_BEFORE_BUILD_ANDROID"] = """
+                PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \
+                PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \
+                mkdir -p "$PBS_LIB" && \
+                printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true
+                """
+        }
         return env
     }
     
