@@ -15,8 +15,9 @@ on:
         required: true
         type: string
       platform:
-        description: 'pypi platform (ios or android)'
-        required: true
+        description: 'pypi platform (ios or android, empty = both)'
+        required: false
+        default: ''
         type: string
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 
@@ -66,14 +67,14 @@ jobs:
           rustup target add x86_64-linux-android
 
       - name: install android ndk
-        if: github.event.inputs.platform == 'android'
+        if: github.event.inputs.platform != 'ios'
         uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
           ndk-version: r27c
 
       - name: debug android env
-        if: github.event.inputs.platform == 'android'
+        if: github.event.inputs.platform != 'ios'
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
@@ -83,14 +84,18 @@ jobs:
 
       - name: build wheels
         run: |
-          if [ "${{ github.event.inputs.platform }}" = "android" ]; then
-            export ANDROID_API_LEVEL=24
-            # Use the NDK installed by setup-ndk so cibuildwheel picks up the
-            # correct version regardless of what the pre-installed SDK NDK provides.
-            export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
+          PLATFORMS="${{ github.event.inputs.platform }}"
+          if [ -z "$PLATFORMS" ]; then
+            PLATFORMS="ios android"
           fi
           mkdir -p output/wheels
-          swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform ${{ github.event.inputs.platform }}
+          for PLATFORM in $PLATFORMS; do
+            if [ "$PLATFORM" = "android" ]; then
+              export ANDROID_API_LEVEL=24
+              export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
+            fi
+            swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform $PLATFORM
+          done
 
       - name: verify wheels were produced
         run: |
