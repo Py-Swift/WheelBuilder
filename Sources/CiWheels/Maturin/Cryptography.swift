@@ -32,9 +32,9 @@ public final class Cryptography: MaturinWheelProtocol {
             // directly into site-packages. The venv Python IS a macOS Python so the macOS
             // cffi .so works at runtime.
             let beforeBuild = [
-                "pip install maturin setuptools",
+                "pip install maturin setuptools pycparser",
                 "pip download cffi --platform macosx_14_0_arm64 --python-version 313 --only-binary :all: -d /tmp/cffi_wheels",
-                "python -c 'import site, zipfile, glob; whl = glob.glob(\"/tmp/cffi_wheels/cffi*.whl\")[0]; sp = site.getsitepackages()[0]; zipfile.ZipFile(whl).extractall(sp)'"
+                "python -c 'import sys, zipfile, glob; sp = next(p for p in sys.path if \"site-packages\" in p); whl = glob.glob(\"/tmp/cffi_wheels/cffi*.whl\")[0]; zipfile.ZipFile(whl).extractall(sp)'"
             ].joined(separator: " && ")
             env["CIBW_BEFORE_BUILD"] = beforeBuild
             env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation --skip-dependency-check"
