@@ -106,10 +106,10 @@ public final class Opencv: CiWheelProtocol {
     }
 
 
-    public static func supported_platforms() throws -> [any PlatformProtocol] {
-        [
-            try Platforms.Android_arm64(),
-            //try Platforms.Android_x86_64()
-        ]
-    }
+    // public static func supported_platforms() throws -> [any PlatformProtocol] {
+    //     [
+    //         try Platforms.Android_arm64(),
+    //         //try Platforms.Android_x86_64()
+    //     ]
+    // }
 }
