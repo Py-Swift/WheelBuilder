@@ -6,6 +6,7 @@ import PlatformInfo
 import PathKit
 import Foundation
 import Tools
+import Platforms
 
 @WheelClass(build_target: .url("https://github.com/opencv/opencv-python/archive/refs/tags/92.tar.gz"))
 public final class Opencv: CiWheelProtocol {
@@ -106,5 +107,13 @@ public final class Opencv: CiWheelProtocol {
             )
             try? cloneDir.delete()
         }
+    }
+
+
+    public static func supported_platforms() throws -> [any PlatformProtocol] {
+        [
+            try Platforms.Android_arm64(),
+            //try Platforms.Android_x86_64()
+        ]
     }
 }

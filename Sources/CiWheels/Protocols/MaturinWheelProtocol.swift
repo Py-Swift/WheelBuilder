@@ -66,7 +66,9 @@ extension PlatformProtocol {
 
 public extension MaturinWheelProtocol {
     
-    func env() throws -> [String : String] {
+    /// All maturin-specific env vars. Conforming types that need to add extra vars
+    /// should call this instead of `base_env()` so Rust/cargo/iOS config is preserved.
+    func maturin_env() throws -> [String: String] {
         var env = base_env()
         
         if let home = ProcessInfo.processInfo.environment["HOME"] {
@@ -111,9 +113,20 @@ public extension MaturinWheelProtocol {
                 "IOS_SDKROOT=\"\(ios_sdkroot)\"",
                 #"PYO3_CROSS_PYTHON_VERSION=$(python3 -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')"#
             ].joined(separator: " ")
+            // cibuildwheel for iOS uses `pip --python <ios-python>` to install build deps,
+            // which makes pip resolve using iOS platform tags — no binary maturin wheel exists
+            // for iOS, so pip falls back to the sdist and fails to compile it.
+            // Fix: pre-install maturin into the build venv (macOS pip, so it finds the binary
+            // wheel) and skip build isolation so cibuildwheel uses that pre-installed maturin.
+            env["CIBW_BEFORE_BUILD"] = "pip install maturin"
+            env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation"
         }
         
         return env
+    }
+    
+    func env() throws -> [String : String] {
+        try maturin_env()
     }
     
 }
