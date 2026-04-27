@@ -34,7 +34,12 @@ public final class Cryptography: MaturinWheelProtocol {
             let beforeBuild = [
                 "pip install maturin setuptools pycparser",
                 "pip download cffi --platform macosx_14_0_arm64 --python-version 313 --only-binary :all: -d /tmp/cffi_wheels",
-                "python -c 'import sys, zipfile, glob; sp = next(p for p in sys.path if \"site-packages\" in p); whl = glob.glob(\"/tmp/cffi_wheels/cffi*.whl\")[0]; zipfile.ZipFile(whl).extractall(sp)'"
+                "python -c 'import sys, zipfile, glob; sp = next(p for p in sys.path if \"site-packages\" in p); whl = glob.glob(\"/tmp/cffi_wheels/cffi*.whl\")[0]; zipfile.ZipFile(whl).extractall(sp)'",
+                // pyo3 requires _sysconfigdata*.py in PYO3_CROSS_LIB_DIR but the
+                // Python-Apple-support xcframework lib dir doesn't include one.
+                // Synthesise it from the cross-venv's sysconfig so pyo3-build-config
+                // can find it and extract the Python version / ABI information.
+                "python3 -c \"import sysconfig, os; libdir=sysconfig.get_config_var('LIBDIR'); vars=sysconfig.get_config_vars(); open(os.path.join(libdir,'_sysconfigdata__ios.py'),'w').write('build_time_vars='+repr(vars))\""
             ].joined(separator: " && ")
             env["CIBW_BEFORE_BUILD"] = beforeBuild
             env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation --skip-dependency-check"
