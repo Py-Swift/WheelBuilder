@@ -111,7 +111,8 @@ public extension MaturinWheelProtocol {
             env["CIBW_ENVIRONMENT_IOS"] = [
                 "PYO3_CROSS=1",
                 "IOS_SDKROOT=\"\(ios_sdkroot)\"",
-                #"PYO3_CROSS_PYTHON_VERSION=$(python3 -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')"#
+                #"PYO3_CROSS_PYTHON_VERSION=$(python3 -c 'import sys; v=sys.version_info; print(f"{v.major}.{v.minor}")')"#,
+                #"PYO3_CROSS_LIB_DIR=$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))')"#
             ].joined(separator: " ")
             // cibuildwheel for iOS uses `pip --python <ios-python>` to install build deps,
             // which makes pip resolve using iOS platform tags — no binary maturin wheel exists
