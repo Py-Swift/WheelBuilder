@@ -145,7 +145,7 @@ extension AnacondaPackages {
         case .pydantic_core: CiWheels.Pydantic_core.self
         case .pymunk: CiWheels.Pymunk.self
         //case .pyzmq: CiWheels.Pyzmq.self
-        case .pynacl: nil
+        case .pynacl: CiWheels.Pynacl.self
         //case .pyobjus: nil
         case .pysha3: nil
         case .pywavelets: nil
