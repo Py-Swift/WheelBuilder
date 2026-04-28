@@ -25,10 +25,11 @@ public final class Opencv: CiWheelProtocol {
                 "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
                 "CI_BUILD=\"1\"",
                 "PKG_CONFIG_PATH=\"\"",
-                // cmake preload file (written by BEFORE_BUILD) pre-populates the
-                // cache with PYTHON3_INCLUDE_PATH and PYTHON3_NUMPY_INCLUDE_DIRS
-                // before any cmake code runs — find_python() skips these for Android
-                // and its set(...CACHE...) without FORCE can't override pre-cached values.
+                // cmake preload file (written by BEFORE_BUILD) supplies
+                // PYTHON3_NUMPY_INCLUDE_DIRS via CACHE PATH (without FORCE);
+                // find_python()'s set(PYTHON3_NUMPY_INCLUDE_DIRS ... CACHE PATH)
+                // without FORCE preserves the preload value for Android.
+                // PYTHON3_INCLUDE_PATH is handled differently — see BEFORE_BUILD.
                 "CMAKE_ARGS=\"-C /tmp/cibw_ocv_preload.cmake\""
             ].joined(separator: " ")
             // Patches for Android cross-compilation:
@@ -37,19 +38,24 @@ public final class Opencv: CiWheelProtocol {
             //    dlopen(libpython3.x.so) — an Android ELF that can't load on macOS.
             //    Create a dummy macOS dylib at the expected path so dlopen succeeds.
             //
-            // 2. PYTHON3_INCLUDE_PATH / PYTHON3_NUMPY_INCLUDE_DIRS:
-            //    opencv's find_python() skips include-path and numpy detection for
-            //    Android (guarded by `if(NOT ANDROID AND NOT APPLE_FRAMEWORK)`), so
-            //    both variables stay "". The iOS patch in setup.py already handles
-            //    this for iOS by passing cmake -D flags; we do the same for Android
-            //    via a cmake preload file (-C flag), which is loaded BEFORE any
-            //    CMakeLists.txt code — find_python()'s set(... CACHE) without FORCE
-            //    cannot override entries already in the cache from the preload.
-            //    Paths are computed from the active PBS Python (sysconfig/numpy)
-            //    which is the same Python cmake sees via -DPYTHON_INCLUDE_DIR.
+            // 2. PYTHON3_NUMPY_INCLUDE_DIRS:
+            //    find_python() skips numpy detection for Android. We supply it via
+            //    a cmake preload (-C), which sets CACHE PATH without FORCE — cmake
+            //    preserves that value when find_python() exports the same var as
+            //    CACHE PATH without FORCE.
             //
-            // 3. Android sample APKs need Gradle + Java — not on the CI runner. Remove
-            //    add_subdirectory(android) from opencv/samples/CMakeLists.txt.
+            // 3. PYTHON3_INCLUDE_PATH:
+            //    find_python() skips include-path detection for Android AND exports
+            //    the variable as CACHE INTERNAL "". cmake CACHE INTERNAL implies
+            //    FORCE, so ANY preload value would be overwritten to "".
+            //    Fix: prepend cmake code to modules/python/python3/CMakeLists.txt
+            //    that sets PYTHON3_INCLUDE_PATH from PYTHON3_INCLUDE_DIR (a CACHE
+            //    PATH set via scikit-build's -D flag, which is preserved). This
+            //    runs AFTER find_python() so CACHE INTERNAL can't clear it, and
+            //    a local cmake set() takes priority over the cache in if() checks.
+            //
+            // 4. Android sample APKs need Gradle + Java — not on the CI runner.
+            //    Remove add_subdirectory(android) from opencv/samples/CMakeLists.txt.
             env["CIBW_BEFORE_BUILD_ANDROID"] = """
                 OCV="${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv"; \\
                 PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \\
@@ -57,11 +63,13 @@ public final class Opencv: CiWheelProtocol {
                 mkdir -p "$PBS_LIB" && \\
                 printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
                 rm -rf "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/_skbuild" 2>/dev/null || true; \\
-                PYINC=$(python -c "import sysconfig; print(sysconfig.get_path('include'))"); \\
                 NUMPYINC=$(python -c "import numpy; print(numpy.get_include())"); \\
-                echo "[WheelBuilder] PYINC=$PYINC"; \\
                 echo "[WheelBuilder] NUMPYINC=$NUMPYINC"; \\
-                printf 'set(PYTHON3_INCLUDE_PATH "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_NUMPY_INCLUDE_DIRS "%s" CACHE PATH "" FORCE)\\n' "$PYINC" "$NUMPYINC" > /tmp/cibw_ocv_preload.cmake; \\
+                printf 'set(PYTHON3_NUMPY_INCLUDE_DIRS "%s" CACHE PATH "" FORCE)\\n' "$NUMPYINC" > /tmp/cibw_ocv_preload.cmake; \\
+                PY3_CMAKE="$OCV/modules/python/python3/CMakeLists.txt"; \\
+                if [ -f "$PY3_CMAKE" ] && ! grep -q WheelBuilder "$PY3_CMAKE"; then \\
+                  printf '# WheelBuilder: set PYTHON3_INCLUDE_PATH from PYTHON3_INCLUDE_DIR for Android\\n# (CACHE INTERNAL implies FORCE so preload cannot set this; local set wins)\\nif(NOT PYTHON3_INCLUDE_PATH AND PYTHON3_INCLUDE_DIR)\\n  set(PYTHON3_INCLUDE_PATH "${PYTHON3_INCLUDE_DIR}")\\nendif()\\n' | cat - "$PY3_CMAKE" > /tmp/_wb_py3.cmake && mv /tmp/_wb_py3.cmake "$PY3_CMAKE" && echo "[WheelBuilder] patched $PY3_CMAKE" || echo "[WheelBuilder] patch FAILED"; \\
+                fi; \\
                 sed -i.bak '/add_subdirectory.*android/d' "$OCV/samples/CMakeLists.txt" 2>/dev/null || true
                 """
         }
