@@ -24,14 +24,7 @@ public final class Opencv: CiWheelProtocol {
             env["CIBW_ENVIRONMENT_ANDROID"] = [
                 "OPENCV_PYTHON_SKIP_GIT_COMMANDS=\"1\"",
                 "CI_BUILD=\"1\"",
-                "PKG_CONFIG_PATH=\"\"",
-                // cmake preload file (written by BEFORE_BUILD) short-circuits
-                // find_python() by pre-setting PYTHON3INTERP_FOUND=TRUE.
-                // find_python() checks `if(NOT ${found})` at its very top — if
-                // already TRUE it skips the entire body, meaning the CACHE INTERNAL
-                // FORCE exports (which would clear PYTHON3_INCLUDE_PATH) never run.
-                // We also pre-set all variables find_python() would have exported.
-                "CMAKE_ARGS=\"-C /tmp/cibw_ocv_preload.cmake\""
+                "PKG_CONFIG_PATH=\"\""
             ].joined(separator: " ")
             // Patches for Android cross-compilation:
             //
@@ -39,37 +32,53 @@ public final class Opencv: CiWheelProtocol {
             //    dlopen(libpython3.x.so) — an Android ELF that can't load on macOS.
             //    Create a dummy macOS dylib at the expected path so dlopen succeeds.
             //
-            // 2. PYTHON3_INCLUDE_PATH / PYTHON3_NUMPY_INCLUDE_DIRS:
-            //    find_python() skips all detection for Android (guarded by
-            //    `if(NOT ANDROID AND NOT APPLE_FRAMEWORK)`). At the end of its body
-            //    it exports PYTHON3_INCLUDE_PATH as CACHE INTERNAL "" — which implies
-            //    FORCE, overwriting any -D or preload value to "".
-            //    The iOS patch in setup.py avoids this by passing
-            //    -DPYTHON3INTERP_FOUND=ON, which makes find_python() skip its body
-            //    entirely (checked at the top: `if(NOT ${found})`). We use the same
-            //    mechanism via the cmake preload file: set PYTHON3INTERP_FOUND TRUE
-            //    with FORCE so find_python() short-circuits and never clears anything.
-            //    All variables find_python() would have set are pre-populated in the
-            //    preload using paths computed from the active PBS Python.
+            // 2. setup.py Android block — mirrors the iOS block the iOS patch adds.
+            //    The iOS patch appends -DPYTHON3INTERP_FOUND=ON and
+            //    -DPYTHON3_INCLUDE_PATH=... as cmake_args in setup.py. Those become
+            //    cmake command-line -D overrides which cmake cannot overwrite via
+            //    cmake code (unlike -C preload cache entries or cmake set() calls).
+            //    BEFORE_BUILD writes a Python patcher to /tmp via heredoc and runs it.
             //
             // 3. Android sample APKs need Gradle + Java — not on the CI runner.
             //    Remove add_subdirectory(android) from opencv/samples/CMakeLists.txt.
-            env["CIBW_BEFORE_BUILD_ANDROID"] = """
-                OCV="${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/opencv"; \\
-                PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')") && \\
-                PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))") && \\
-                mkdir -p "$PBS_LIB" && \\
-                printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true; \\
-                rm -rf "${GITHUB_WORKSPACE}/output/wheels/opencv-python-92/_skbuild" 2>/dev/null || true; \\
-                PYINC=$(python -c "import sysconfig; print(sysconfig.get_path('include'))"); \\
-                PYVERMAJ=$(python -c "import sys; print(sys.version_info.major)"); \\
-                PYVERMIN=$(python -c "import sys; print(sys.version_info.minor)"); \\
-                NUMPYINC=$(python -c "import numpy; print(numpy.get_include())"); \\
-                echo "[WheelBuilder] PYINC=$PYINC NUMPYINC=$NUMPYINC ver=$PYVERMAJ.$PYVERMIN"; \\
-                printf 'set(PYTHON3INTERP_FOUND TRUE CACHE BOOL "" FORCE)\\nset(PYTHON3_VERSION_STRING "%s.%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_VERSION_MAJOR "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_VERSION_MINOR "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_INCLUDE_PATH "%s" CACHE INTERNAL "" FORCE)\\nset(PYTHON3_NUMPY_INCLUDE_DIRS "%s" CACHE PATH "" FORCE)\\n' "$PYVERMAJ" "$PYVERMIN" "$PYVERMAJ" "$PYVERMIN" "$PYINC" "$NUMPYINC" > /tmp/cibw_ocv_preload.cmake; \\
-                echo "[WheelBuilder] preload:"; cat /tmp/cibw_ocv_preload.cmake; \\
-                sed -i.bak '/add_subdirectory.*android/d' "$OCV/samples/CMakeLists.txt" 2>/dev/null || true
-                """
+            env["CIBW_BEFORE_BUILD_ANDROID"] = #"""
+                set -e
+                OCV="${GITHUB_WORKSPACE}/output/wheels/opencv-python-92"
+                PYVER=$(python -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')")
+                PBS_LIB=$(python -c "import sys,os; print(os.path.join(os.path.dirname(sys.prefix), 'pbs', 'python', 'lib'))")
+                mkdir -p "$PBS_LIB"
+                printf 'void _dummy(void){}' | cc -x c - -dynamiclib -o "$PBS_LIB/libpython${PYVER}.so" 2>/dev/null || true
+                rm -rf "${OCV}/_skbuild" 2>/dev/null || true
+                cat > /tmp/wb_android_patch.py << 'PYEOF'
+                import sys, os
+                f = os.environ["GITHUB_WORKSPACE"] + "/output/wheels/opencv-python-92/setup.py"
+                src = open(f).read()
+                if "is_android" in src:
+                    print("[WheelBuilder] setup.py already patched for Android")
+                    sys.exit(0)
+                src = src.replace(
+                    '    is_ios = "ios" in target_platform',
+                    '    is_ios = "ios" in target_platform\n    is_android = "android" in target_platform')
+                block = (
+                    "\n    if is_android:\n"
+                    "        _inc = __import__('sysconfig').get_path('include')\n"
+                    "        cmake_args.append('-DPYTHON3INTERP_FOUND=ON')\n"
+                    "        cmake_args.append('-DPYTHON3_INCLUDE_PATH=%s' % _inc)\n"
+                    "        cmake_args.append('-DPYTHON3_VERSION_STRING=%d.%d' % (sys.version_info.major, sys.version_info.minor))\n"
+                    "        cmake_args.append('-DPYTHON3_VERSION_MAJOR=%d' % sys.version_info.major)\n"
+                    "        cmake_args.append('-DPYTHON3_VERSION_MINOR=%d' % sys.version_info.minor)\n"
+                    "        cmake_args.append('-DPYTHON_DEFAULT_AVAILABLE=TRUE')\n"
+                    "        try:\n"
+                    "            import numpy as _n; cmake_args.append('-DPYTHON3_NUMPY_INCLUDE_DIRS=%s' % _n.get_include())\n"
+                    "        except: pass\n"
+                )
+                src = src.replace("    if build_headless:", block + "    if build_headless:")
+                open(f, "w").write(src)
+                print("[WheelBuilder] patched setup.py for Android cmake args")
+                PYEOF
+                python /tmp/wb_android_patch.py
+                sed -i.bak '/add_subdirectory.*android/d' "${OCV}/opencv/samples/CMakeLists.txt" 2>/dev/null || true
+                """#
         }
         return env
     }
