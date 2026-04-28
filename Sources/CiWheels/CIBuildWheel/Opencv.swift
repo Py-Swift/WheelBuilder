@@ -53,6 +53,26 @@ public final class Opencv: CiWheelProtocol {
                 import sys, os
                 f = os.environ["GITHUB_WORKSPACE"] + "/output/wheels/opencv-python-92/setup.py"
                 src = open(f).read()
+                # Patch opencv's modules/python/CMakeLists.txt so Android+python3 is allowed.
+                # By default opencv disables python3 for ALL Android builds via:
+                #   if(ANDROID OR APPLE_FRAMEWORK OR WINRT) ... disable python3 ... return()
+                # This also skips add_subdirectory(bindings) so python_bindings_generator is
+                # never registered, making python3 "Unavailable by dependency". iOS works
+                # because APPLE_FRAMEWORK is not set in cibuildwheel iOS builds (only
+                # CMAKE_SYSTEM_NAME=iOS is set). We patch the condition to allow Android
+                # builds when BUILD_opencv_python3=ON is explicitly requested.
+                _cm = os.environ["GITHUB_WORKSPACE"] + "/output/wheels/opencv-python-92/opencv/modules/python/CMakeLists.txt"
+                if os.path.exists(_cm):
+                    _s = open(_cm).read()
+                    _o = "if(ANDROID OR APPLE_FRAMEWORK OR WINRT)"
+                    _n = "if((ANDROID AND NOT BUILD_opencv_python3) OR APPLE_FRAMEWORK OR WINRT)"
+                    if _o in _s:
+                        open(_cm, "w").write(_s.replace(_o, _n, 1))
+                        print("[WheelBuilder] patched modules/python/CMakeLists.txt for Android python3")
+                    elif _n in _s:
+                        print("[WheelBuilder] modules/python/CMakeLists.txt already patched")
+                    else:
+                        print("[WheelBuilder] WARNING: modules/python/CMakeLists.txt android check not found")
                 if "is_android" in src:
                     print("[WheelBuilder] setup.py already patched for Android")
                     sys.exit(0)
@@ -68,6 +88,7 @@ public final class Opencv: CiWheelProtocol {
                     "        cmake_args.append('-DPYTHON3_VERSION_MAJOR=%d' % sys.version_info.major)\n"
                     "        cmake_args.append('-DPYTHON3_VERSION_MINOR=%d' % sys.version_info.minor)\n"
                     "        cmake_args.append('-DPYTHON_DEFAULT_AVAILABLE=TRUE')\n"
+                    "        cmake_args.append('-DPYTHON3_PACKAGES_PATH=python')\n"
                     "        try:\n"
                     "            import numpy as _n; cmake_args.append('-DPYTHON3_NUMPY_INCLUDE_DIRS=%s' % _n.get_include())\n"
                     "        except: pass\n"
