@@ -163,13 +163,13 @@ extension Ffmpeg {
 
         let api = Process.android_api_level
         let platformTag = "android_\(api)_\(abiTag)"
-        let wheelName = "ffmpeg-\(version)-py3-none-\(platformTag).whl"
+        let wheelName = "libffmpeg-\(version)-py3-none-\(platformTag).whl"
 
         try await withTemp { stagingDir in
-            let pkgDir        = stagingDir + "ffmpeg"
+            let pkgDir        = stagingDir + "libffmpeg"
             let dotLibsDir    = pkgDir + ".libs"
             let dotIncludesDir = pkgDir + ".includes"
-            let distInfoDir   = stagingDir + "ffmpeg-\(version).dist-info"
+            let distInfoDir   = stagingDir + "libffmpeg-\(version).dist-info"
 
             try pkgDir.mkpath()
             try dotLibsDir.mkpath()
@@ -191,7 +191,7 @@ extension Ffmpeg {
 
             let metadata = """
                 Metadata-Version: 2.1
-                Name: ffmpeg
+                Name: libffmpeg
                 Version: \(version)
                 Summary: FFmpeg shared libraries for Android
                 Home-page: https://ffmpeg.org
@@ -215,7 +215,7 @@ extension Ffmpeg {
 
             let zip = Process()
             zip.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
-            zip.arguments = ["-r", wheelPath.string, "ffmpeg", "ffmpeg-\(version).dist-info"]
+            zip.arguments = ["-r", wheelPath.string, "libffmpeg", "libffmpeg-\(version).dist-info"]
             zip.currentDirectoryURL = stagingDir.url
             try zip.run()
             zip.waitUntilExit()
