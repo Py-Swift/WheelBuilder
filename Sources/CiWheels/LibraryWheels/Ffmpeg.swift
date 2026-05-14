@@ -167,12 +167,13 @@ extension Ffmpeg {
 
         try await withTemp { stagingDir in
             let pkgDir        = stagingDir + "libffmpeg"
-            let dotLibsDir    = pkgDir + ".libs"
-            let dotIncludesDir = pkgDir + ".includes"
+            let dotLibsDir    = stagingDir + ".libs"
+            let dotIncludesDir = stagingDir + ".includes"
             let distInfoDir   = stagingDir + "libffmpeg-\(version).dist-info"
 
             try pkgDir.mkpath()
             try dotLibsDir.mkpath()
+            try dotIncludesDir.mkpath()
             try distInfoDir.mkpath()
 
             try (pkgDir + "__init__.py").write("")
@@ -185,7 +186,7 @@ extension Ffmpeg {
             if includeDir.exists {
                 try FileManager.default.copyItem(
                     atPath: includeDir.string,
-                    toPath: dotIncludesDir.string
+                    toPath: (dotIncludesDir + "ffmpeg").string
                 )
             }
 
@@ -215,7 +216,7 @@ extension Ffmpeg {
 
             let zip = Process()
             zip.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
-            zip.arguments = ["-r", wheelPath.string, "libffmpeg", "libffmpeg-\(version).dist-info"]
+            zip.arguments = ["-r", wheelPath.string, "libffmpeg", ".libs", ".includes", "libffmpeg-\(version).dist-info"]
             zip.currentDirectoryURL = stagingDir.url
             try zip.run()
             zip.waitUntilExit()
