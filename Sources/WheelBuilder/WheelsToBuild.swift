@@ -9,6 +9,7 @@ import PyPi_Api
 public enum WheelsToBuild: String, Decodable {
     case aiohttp
     case apsw
+    case ffmpeg
 }
 
 public enum AnacondaPackages: String, CaseIterable {
@@ -30,6 +31,7 @@ public enum AnacondaPackages: String, CaseIterable {
     case editdistance
     case ephem
     case freetype
+    case ffmpeg
     case frozenlist
     case gensim
     case greenlet
@@ -111,6 +113,7 @@ extension AnacondaPackages {
         case .editdistance: nil
         case .ephem: nil
         case .freetype: nil
+        case .ffmpeg: CiWheels.Ffmpeg.self
         case .frozenlist: nil
         case .gensim: nil
         case .greenlet: CiWheels.Greenlet.self
