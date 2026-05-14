@@ -18,17 +18,6 @@ public final class Ffmpeg: CiWheelProtocol {
 
         let v = version ?? Self.default_version
         let url = URL(string: "https://www.ffmpeg.org/releases/ffmpeg-\(v).tar.xz")!
-        try await downloadTarFile(url: url, to: working_dir)
-
-        let srcDir = working_dir + "ffmpeg-\(v)"
-
-        try await patch(content: ffmpeg_configure_patch, fn: "configure", target: srcDir)
-
-        try await withTemp { tmpDir in
-            let patchFile = tmpDir + "android15.patch"
-            try patchFile.write(ffmpeg_android15_patch)
-            try await git_apply(file: patchFile, target: srcDir)
-        }
 
         let ndk = try Process.get_android_ndk()
         let host = Process.android_ndk_host
@@ -53,6 +42,23 @@ public final class Ffmpeg: CiWheelProtocol {
 
         let clangTriple = "\(triple)\(api)"
         let crossPrefix = (binDir + "\(clangTriple)-").string
+
+        // Use an arch-specific work directory so arm64 and x86_64 builds don't share .o files
+        let archWorkDir = working_dir + archFlag
+        try archWorkDir.mkpath()
+        try await downloadTarFile(url: url, to: archWorkDir)
+        let srcDir = archWorkDir + "ffmpeg-\(v)"
+
+        try await patch(content: ffmpeg_configure_patch, fn: "configure", target: srcDir)
+
+        // FFmpeg 8.0.1+ already ships compat/android/binder.c; only apply the backport on older releases
+        if !(srcDir + "compat/android/binder.c").exists {
+            try await withTemp { tmpDir in
+                let patchFile = tmpDir + "android15.patch"
+                try patchFile.write(ffmpeg_android15_patch)
+                try await git_apply(file: patchFile, target: srcDir)
+            }
+        }
 
         let env: [String: String] = [
             "PATH": "\(binDir.string):/usr/bin:/bin",
@@ -117,13 +123,14 @@ public final class Ffmpeg: CiWheelProtocol {
             domain: "FfmpegInstall"
         )
 
-        let libsDir = srcDir + "lib"
-        let ffmpegBin = srcDir + "ffmpeg"
+        let libsDir    = srcDir + "lib"
+        let includeDir = srcDir + "include"
+        let ffmpegBin  = srcDir + "ffmpeg"
         if ffmpegBin.exists {
             try ffmpegBin.copy(libsDir + "libffmpegbin.so")
         }
 
-        try await packageWheel(libsDir: libsDir, version: v, wheels_dir: wheels_dir)
+        try await packageWheel(libsDir: libsDir, includeDir: includeDir, version: v, wheels_dir: wheels_dir)
     }
 
 }
@@ -147,7 +154,7 @@ extension Ffmpeg {
         }
     }
 
-    private func packageWheel(libsDir: Path, version: String, wheels_dir: Path) async throws {
+    private func packageWheel(libsDir: Path, includeDir: Path, version: String, wheels_dir: Path) async throws {
         let abiTag: String
         switch platform.get_arch() {
         case .arm64:  abiTag = "arm64_v8a"
@@ -159,9 +166,10 @@ extension Ffmpeg {
         let wheelName = "ffmpeg-\(version)-py3-none-\(platformTag).whl"
 
         try await withTemp { stagingDir in
-            let pkgDir     = stagingDir + "ffmpeg"
-            let dotLibsDir = pkgDir + ".libs"
-            let distInfoDir = stagingDir + "ffmpeg-\(version).dist-info"
+            let pkgDir        = stagingDir + "ffmpeg"
+            let dotLibsDir    = pkgDir + ".libs"
+            let dotIncludesDir = pkgDir + ".includes"
+            let distInfoDir   = stagingDir + "ffmpeg-\(version).dist-info"
 
             try pkgDir.mkpath()
             try dotLibsDir.mkpath()
@@ -172,6 +180,13 @@ extension Ffmpeg {
             let soFiles = try libsDir.children().filter { $0.`extension` == "so" }
             for so in soFiles {
                 try so.copy(dotLibsDir + so.lastComponent)
+            }
+
+            if includeDir.exists {
+                try FileManager.default.copyItem(
+                    atPath: includeDir.string,
+                    toPath: dotIncludesDir.string
+                )
             }
 
             let metadata = """
