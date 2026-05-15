@@ -14,10 +14,23 @@ public final class Ffmpeg: CiWheelProtocol {
     }
 
     public func build_wheel(working_dir: Path, version: String? = nil, wheels_dir: Path) async throws {
-        guard platform.get_sdk() == .android else { return }
-
         let v = version ?? Self.default_version
-        let url = URL(string: "https://www.ffmpeg.org/releases/ffmpeg-\(v).tar.xz")!
+        switch platform.get_sdk() {
+        case .android:
+            try await buildAndroid(working_dir: working_dir, version: v, wheels_dir: wheels_dir)
+        case .iphoneos, .iphonesimulator:
+            try await buildIOS(working_dir: working_dir, version: v, wheels_dir: wheels_dir)
+        default:
+            return
+        }
+    }
+
+}
+
+extension Ffmpeg {
+
+    private func buildAndroid(working_dir: Path, version: String, wheels_dir: Path) async throws {
+        let url = URL(string: "https://www.ffmpeg.org/releases/ffmpeg-\(version).tar.xz")!
 
         let ndk = try Process.get_android_ndk()
         let host = Process.android_ndk_host
@@ -43,15 +56,13 @@ public final class Ffmpeg: CiWheelProtocol {
         let clangTriple = "\(triple)\(api)"
         let crossPrefix = (binDir + "\(clangTriple)-").string
 
-        // Use an arch-specific work directory so arm64 and x86_64 builds don't share .o files
         let archWorkDir = working_dir + archFlag
         try archWorkDir.mkpath()
         try await downloadTarFile(url: url, to: archWorkDir)
-        let srcDir = archWorkDir + "ffmpeg-\(v)"
+        let srcDir = archWorkDir + "ffmpeg-\(version)"
 
         try await patch(content: ffmpeg_configure_patch, fn: "configure", target: srcDir)
 
-        // FFmpeg 8.0.1+ already ships compat/android/binder.c; only apply the backport on older releases
         if !(srcDir + "compat/android/binder.c").exists {
             try await withTemp { tmpDir in
                 let patchFile = tmpDir + "android15.patch"
@@ -98,30 +109,10 @@ public final class Ffmpeg: CiWheelProtocol {
             "--prefix=\(srcDir.string)",
         ] + extraFlags
 
-        try runProcess(
-            executable: srcDir + "configure",
-            args: configureArgs,
-            env: env,
-            cwd: srcDir,
-            domain: "FfmpegConfigure"
-        )
-
+        try runProcess(executable: srcDir + "configure", args: configureArgs, env: env, cwd: srcDir, domain: "FfmpegConfigure")
         let cpuCount = ProcessInfo.processInfo.processorCount
-        try runProcess(
-            executable: Path("/usr/bin/make"),
-            args: ["-j", "\(cpuCount)"],
-            env: env,
-            cwd: srcDir,
-            domain: "FfmpegMake"
-        )
-
-        try runProcess(
-            executable: Path("/usr/bin/make"),
-            args: ["install"],
-            env: env,
-            cwd: srcDir,
-            domain: "FfmpegInstall"
-        )
+        try runProcess(executable: Path("/usr/bin/make"), args: ["-j", "\(cpuCount)"], env: env, cwd: srcDir, domain: "FfmpegMake")
+        try runProcess(executable: Path("/usr/bin/make"), args: ["install"], env: env, cwd: srcDir, domain: "FfmpegInstall")
 
         let libsDir    = srcDir + "lib"
         let includeDir = srcDir + "include"
@@ -130,12 +121,182 @@ public final class Ffmpeg: CiWheelProtocol {
             try ffmpegBin.copy(libsDir + "libffmpegbin.so")
         }
 
-        try await packageWheel(libsDir: libsDir, includeDir: includeDir, version: v, wheels_dir: wheels_dir)
+        try await packageWheel(libsDir: libsDir, includeDir: includeDir, version: version, wheels_dir: wheels_dir)
     }
 
-}
+    private func buildIOS(working_dir: Path, version: String, wheels_dir: Path) async throws {
+        let sdk  = platform.get_sdk()
+        let arch = platform.get_arch()
+        let sysroot = try Process.get_sdk(sdk: sdk)
+        let url = URL(string: "https://www.ffmpeg.org/releases/ffmpeg-\(version).tar.xz")!
 
-extension Ffmpeg {
+        let ffmpegArch: String
+        let archStr: String
+        let targetTriple: String
+        var extraConfigFlags: [String] = []
+
+        switch (sdk, arch) {
+        case (.iphoneos, .arm64):
+            ffmpegArch = "aarch64"
+            archStr    = "arm64"
+            targetTriple = "arm64-apple-ios13.0"
+        case (.iphonesimulator, .arm64):
+            ffmpegArch = "aarch64"
+            archStr    = "arm64"
+            targetTriple = "arm64-apple-ios13.0-simulator"
+        case (.iphonesimulator, .x86_64):
+            ffmpegArch = "x86_64"
+            archStr    = "x86_64"
+            targetTriple = "x86_64-apple-ios13.0-simulator"
+            extraConfigFlags = ["--disable-asm"]
+        default:
+            return
+        }
+
+        let archWorkDir = working_dir + "\(sdk)_\(arch)"
+        try archWorkDir.mkpath()
+        try await downloadTarFile(url: url, to: archWorkDir)
+        let srcDir = archWorkDir + "ffmpeg-\(version)"
+
+        try await patch(content: ffmpeg_configure_patch, fn: "configure", target: srcDir)
+
+        let cc     = try Process.xcrun(args: "--sdk", sdk.rawValue, "--find", "clang").string
+        let cxx    = try Process.xcrun(args: "--sdk", sdk.rawValue, "--find", "clang++").string
+        let ar     = try Process.xcrun(args: "--sdk", sdk.rawValue, "--find", "ar").string
+        let ranlib = try Process.xcrun(args: "--sdk", sdk.rawValue, "--find", "ranlib").string
+        let nm     = try Process.xcrun(args: "--sdk", sdk.rawValue, "--find", "nm").string
+        let strip  = try Process.xcrun(args: "--sdk", sdk.rawValue, "--find", "strip").string
+
+        let extraCFlags  = "-arch \(archStr) -target \(targetTriple) -isysroot \(sysroot.string)"
+        let extraLDFlags = "-arch \(archStr) -target \(targetTriple) -isysroot \(sysroot.string)"
+
+        let env: [String: String] = [
+            "PATH":    ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin",
+            "CC":      cc,
+            "CXX":     cxx,
+            "AR":      ar,
+            "RANLIB":  ranlib,
+            "NM":      nm,
+            "STRIP":   strip,
+            "SDKROOT": sysroot.string,
+        ]
+
+        let configureArgs: [String] = [
+            "--target-os=darwin",
+            "--enable-cross-compile",
+            "--arch=\(ffmpegArch)",
+            "--sysroot=\(sysroot.string)",
+            "--extra-cflags=\(extraCFlags)",
+            "--extra-ldflags=\(extraLDFlags)",
+            "--enable-shared", "--disable-static",
+            "--enable-pic", "--disable-debug", "--disable-doc", "--disable-programs",
+            "--disable-symver",
+            "--enable-filter=aresample,resample,crop,adelay,volume,scale",
+            "--enable-protocol=file,http,hls,udp,tcp",
+            "--enable-small", "--enable-hwaccels",
+            "--enable-parser=aac,ac3,h261,h264,mpegaudio,mpeg4video,mpegvideo,vc1",
+            "--enable-decoder=aac,h264,mpeg4,mpegvideo",
+            "--enable-muxer=h264,mov,mp4,mpeg2video",
+            "--enable-demuxer=aac,h264,m4v,mov,mpegvideo,vc1,rtsp",
+            "--prefix=\(srcDir.string)",
+        ] + extraConfigFlags
+
+        try runProcess(executable: srcDir + "configure", args: configureArgs, env: env, cwd: srcDir, domain: "FfmpegConfigure")
+        let cpuCount = ProcessInfo.processInfo.processorCount
+        try runProcess(executable: Path("/usr/bin/make"), args: ["-j", "\(cpuCount)"], env: env, cwd: srcDir, domain: "FfmpegMake")
+        try runProcess(executable: Path("/usr/bin/make"), args: ["install"], env: env, cwd: srcDir, domain: "FfmpegInstall")
+
+        let libsDir    = srcDir + "lib"
+        let includeDir = srcDir + "include"
+
+        try await packageWheelIOS(libsDir: libsDir, includeDir: includeDir, version: version, wheels_dir: wheels_dir)
+    }
+
+    private func packageWheelIOS(libsDir: Path, includeDir: Path, version: String, wheels_dir: Path) async throws {
+        let platformTag = platform.wheel_file_platform
+        let wheelName   = "libffmpeg-\(version)-py3-none-\(platformTag).whl"
+
+        try await withTemp { stagingDir in
+            let pkgDir           = stagingDir + "libffmpeg"
+            let dotFrameworksDir = stagingDir + ".frameworks"
+            let dotIncludesDir   = stagingDir + ".includes"
+            let distInfoDir      = stagingDir + "libffmpeg-\(version).dist-info"
+
+            try pkgDir.mkpath()
+            try dotFrameworksDir.mkpath()
+            try dotIncludesDir.mkpath()
+            try distInfoDir.mkpath()
+
+            try (pkgDir + "__init__.py").write("")
+
+            // Create one xcframework per top-level dylib (e.g. libavcodec.dylib — one dot)
+            let dylibs = try libsDir.children().filter { child in
+                child.`extension` == "dylib" &&
+                child.lastComponent.filter({ $0 == "." }).count == 1
+            }
+            for dylib in dylibs {
+                let libName = (dylib.lastComponent as NSString).deletingPathExtension
+                let xcframeworkOut = dotFrameworksDir + "\(libName).xcframework"
+                var xcArgs = ["-create-xcframework", "-library", dylib.string]
+                let headersDir = includeDir + libName
+                if headersDir.exists {
+                    xcArgs += ["-headers", headersDir.string]
+                }
+                xcArgs += ["-output", xcframeworkOut.string]
+                try self.runProcess(
+                    executable: Path("/usr/bin/xcodebuild"),
+                    args: xcArgs,
+                    env: ProcessInfo.processInfo.environment,
+                    cwd: stagingDir,
+                    domain: "XcframeworkCreate"
+                )
+            }
+
+            if includeDir.exists {
+                try FileManager.default.copyItem(
+                    atPath: includeDir.string,
+                    toPath: (dotIncludesDir + "ffmpeg").string
+                )
+            }
+
+            let metadata = """
+                Metadata-Version: 2.1
+                Name: libffmpeg
+                Version: \(version)
+                Summary: FFmpeg shared libraries for iOS
+                Home-page: https://ffmpeg.org
+                License: LGPL-2.1
+                Platform: iOS
+                """
+            try (distInfoDir + "METADATA").write(metadata)
+
+            let wheel = """
+                Wheel-Version: 1.0
+                Generator: WheelBuilder
+                Root-Is-Purelib: false
+                Tag: py3-none-\(platformTag)
+                """
+            try (distInfoDir + "WHEEL").write(wheel)
+            try (distInfoDir + "RECORD").write("")
+
+            try wheels_dir.mkpath()
+            let wheelPath = wheels_dir + wheelName
+
+            let zip = Process()
+            zip.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+            zip.arguments = ["-r", wheelPath.string, "libffmpeg", ".frameworks", ".includes", "libffmpeg-\(version).dist-info"]
+            zip.currentDirectoryURL = stagingDir.url
+            try zip.run()
+            zip.waitUntilExit()
+            guard zip.terminationStatus == 0 else {
+                throw NSError(
+                    domain: "FfmpegPackage",
+                    code: Int(zip.terminationStatus),
+                    userInfo: [NSLocalizedDescriptionKey: "zip failed (exit \(zip.terminationStatus))"]
+                )
+            }
+        }
+    }
 
     private func runProcess(executable: Path, args: [String], env: [String: String], cwd: Path, domain: String) throws {
         let proc = Process()
