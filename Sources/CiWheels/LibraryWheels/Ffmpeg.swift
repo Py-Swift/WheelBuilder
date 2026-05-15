@@ -187,6 +187,7 @@ extension Ffmpeg {
             "--arch=\(ffmpegArch)",
             "--sysroot=\(sysroot.string)",
             "--host-cc=/usr/bin/clang",
+            "--disable-videotoolbox",
             "--extra-cflags=\(extraCFlags)",
             "--extra-ldflags=\(extraLDFlags)",
             "--enable-shared", "--disable-static",
