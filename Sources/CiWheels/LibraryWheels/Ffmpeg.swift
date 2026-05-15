@@ -186,6 +186,7 @@ extension Ffmpeg {
             "--enable-cross-compile",
             "--arch=\(ffmpegArch)",
             "--sysroot=\(sysroot.string)",
+            "--host-cc=/usr/bin/clang",
             "--extra-cflags=\(extraCFlags)",
             "--extra-ldflags=\(extraLDFlags)",
             "--enable-shared", "--disable-static",
