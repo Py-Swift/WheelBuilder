@@ -64,7 +64,6 @@ Package.resolved
 /.swiftpm/xcode
 index.html
 .DS_Store
-wheels/
 wheelhouse/
 nohup.out
 python-for-android/
