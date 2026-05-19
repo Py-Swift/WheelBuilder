@@ -38,9 +38,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       
-      - uses: actions/setup-python@v6
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.13.8'
+          python-version: '3.13'
       #- uses: actions/setup-python@v6
       #  with:
       #    python-version: '3.14.rc3'
@@ -54,10 +54,10 @@ jobs:
         run: brew install pkg-config
 
       - name: install cibuildwheel
-        run: pip3.13 install cibuildwheel
+        run: uv pip install cibuildwheel
 
       - name: install maturin
-        run: pip3.13 install maturin
+        run: uv pip install maturin
 
       - name: install rust ios targets
         run: |
@@ -95,7 +95,7 @@ jobs:
               export ANDROID_API_LEVEL=24
               export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
             fi
-            swift run WheelBuilderCLI build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform $PLATFORM
+            uv run wheelbuilder build ${{ github.event.inputs.name }} $PWD/output/wheels --version ${{ github.event.inputs.version }} --platform $PLATFORM
           done
 
       - name: verify wheels were produced

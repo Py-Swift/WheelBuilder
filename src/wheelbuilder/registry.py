@@ -17,6 +17,7 @@ from wheelbuilder.wheels.cibuildwheel.netifaces import Netifaces
 from wheelbuilder.wheels.cibuildwheel.numpy import Numpy
 from wheelbuilder.wheels.cibuildwheel.opencv import Opencv
 from wheelbuilder.wheels.cibuildwheel.pandas import Pandas
+from wheelbuilder.wheels.cibuildwheel.pillow import Pillow
 from wheelbuilder.wheels.cibuildwheel.pycryptodome import Pycryptodome
 from wheelbuilder.wheels.cibuildwheel.pymunk import Pymunk
 from wheelbuilder.wheels.cibuildwheel.pynacl import Pynacl
@@ -53,6 +54,7 @@ WHEELS: dict[str, type[WheelBase]] = {
     "orjson": Orjson,
     "pandas": Pandas,
     "pendulum": Pendulum,
+    "pillow": Pillow,
     "pycryptodome": Pycryptodome,
     "pydantic_core": Pydantic_core,
     "pymunk": Pymunk,

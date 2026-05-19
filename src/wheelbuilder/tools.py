@@ -199,6 +199,51 @@ def url_download(url: str, name: str, output: Path) -> Path | None:
     return None
 
 
+def ndk_cmake_build(
+    source_dir: Path,
+    install_prefix: Path,
+    arch: str,
+    api: str | None = None,
+    extra_args: list[str] | None = None,
+    env: dict[str, str] | None = None,
+) -> None:
+    """Cross-compile a CMake project for Android using the NDK toolchain.
+
+    `arch` is the wheelbuilder Arch value ("arm64" or "x86_64"). `api` defaults
+    to `android_api_level()`. Headers/libs land under `install_prefix/{include,lib}`.
+    Builds static libs (BUILD_SHARED_LIBS=OFF) in Release mode using Ninja.
+    """
+    cmake = which("cmake")
+    ninja = which("ninja")
+    ndk = get_android_ndk()
+    toolchain = ndk / "build/cmake/android.toolchain.cmake"
+    if not toolchain.exists():
+        raise RuntimeError(f"NDK CMake toolchain not found at {toolchain}")
+    abi = "arm64-v8a" if arch == "arm64" else "x86_64"
+    api_level = api or android_api_level()
+    build_dir = source_dir / "_wb_build"
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+    install_prefix.mkdir(parents=True, exist_ok=True)
+    configure = [
+        cmake,
+        "-S", str(source_dir),
+        "-B", str(build_dir),
+        "-G", "Ninja",
+        f"-DCMAKE_MAKE_PROGRAM={ninja}",
+        f"-DCMAKE_TOOLCHAIN_FILE={toolchain}",
+        f"-DANDROID_ABI={abi}",
+        f"-DANDROID_PLATFORM=android-{api_level}",
+        f"-DCMAKE_INSTALL_PREFIX={install_prefix}",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_SHARED_LIBS=OFF",
+    ]
+    if extra_args:
+        configure.extend(extra_args)
+    run(configure, env=env)
+    run([cmake, "--build", str(build_dir), "--target", "install"], env=env)
+
+
 def cibuildwheel(
     target: Path,
     ci_platform: str,
