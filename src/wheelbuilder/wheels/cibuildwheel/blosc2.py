@@ -11,7 +11,7 @@ class Blosc2(CiWheelBase):
         env["CIBW_BEFORE_BUILD_IOS"] = " && ".join(
             [
                 "pip install --only-binary=numpy 'scikit-build-core>=0.11.0' 'cython>=3' 'numpy>=2.1'",
-                "python -c \"import sys,numpy; open('/tmp/blosc2_cmake_init.cmake','w').write('set(Python_EXECUTABLE \\\"'+sys.executable+'\\\" CACHE FILEPATH \\\"\\\" FORCE)\\nset(Python_NumPy_INCLUDE_DIRS \\\"'+numpy.get_include()+'\\\" CACHE PATH \\\"\\\" FORCE)\\n')\"",
+                "python -c \"import sys,sysconfig,os;sp=sysconfig.get_path('purelib');ni=next((os.path.join(sp,d) for d in('numpy/_core/include','numpy/core/include')if os.path.isdir(os.path.join(sp,d))),sp+'/numpy/_core/include');open('/tmp/blosc2_cmake_init.cmake','w').write('set(Python_EXECUTABLE \\\"'+sys.executable+'\\\" CACHE FILEPATH \\\"\\\" FORCE)\\nset(Python_NumPy_INCLUDE_DIRS \\\"'+ni+'\\\" CACHE PATH \\\"\\\" FORCE)\\n')\"",
                 "MINIEXPR_SRC=/tmp/blosc2_ios_miniexpr",
                 "rm -rf $MINIEXPR_SRC",
                 "git clone --depth 1 https://github.com/Blosc/miniexpr.git $MINIEXPR_SRC",

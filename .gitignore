@@ -80,4 +80,5 @@ build/
 *.egg
 *.whl
 *.log
+kivy-mobile-builder/
 .wrangler/
