@@ -71,9 +71,9 @@ jobs:
           name: wheels-output
           path: ./output
 
-  anaconda_upload:
-    name: Upload to Anaconda
+  r2_upload:
+    name: Upload to R2
     needs: [build]
-    uses: ./.github/workflows/anaconda-upload.yml
+    uses: ./.github/workflows/r2-upload.yml
     secrets: inherit
 

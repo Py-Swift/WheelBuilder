@@ -80,3 +80,4 @@ build/
 *.egg
 *.whl
 *.log
+.wrangler/
