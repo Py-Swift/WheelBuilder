@@ -77,7 +77,7 @@ class WheelBuilderCLI:
         for name, wheel_cls in WHEELS.items():
             try:
                 if args.checks:
-                    platforms = compare_versions(name)
+                    platforms = compare_versions(name, wheel_cls)
                     if not platforms:
                         continue
                     filter_ = platforms[0] if len(platforms) == 1 else None

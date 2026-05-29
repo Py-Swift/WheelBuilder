@@ -7,6 +7,10 @@ class Pymunk(CiWheelBase):
     def env(self):
         env = self.base_env()
         if self.platform.sdk == SDK.android:
+            # pymunk's pyproject.toml includes pp310-*/pp311-* (PyPy) selectors
+            # which cibuildwheel 3.x rejects for android (PyPy not available).
+            # Override CIBW_BUILD to CPython-only so those selectors are ignored.
+            env["CIBW_BUILD"] = "cp3*"
             env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
                 [
                     'LDFLAGS="$LDFLAGS -llog -lm"',

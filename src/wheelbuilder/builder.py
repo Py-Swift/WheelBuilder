@@ -30,18 +30,21 @@ def resolve_platforms(
     filter_: BuildPlatform | None, wheel_cls: type[WheelBase] | None
 ) -> list[PlatformBase]:
     if filter_ == BuildPlatform.ios:
-        return [Iphoneos(), IphoneSimulator_arm64(), IphoneSimulator_x86_64()]
-    if filter_ == BuildPlatform.android:
-        return [Android_arm64(), Android_x86_64()]
+        filtered: list[PlatformBase] = [Iphoneos(), IphoneSimulator_arm64(), IphoneSimulator_x86_64()]
+    elif filter_ == BuildPlatform.android:
+        filtered = [Android_arm64(), Android_x86_64()]
+    else:
+        return wheel_cls.supported_platforms() if wheel_cls is not None else [
+            Iphoneos(),
+            IphoneSimulator_arm64(),
+            IphoneSimulator_x86_64(),
+            Android_arm64(),
+            Android_x86_64(),
+        ]
     if wheel_cls is not None:
-        return wheel_cls.supported_platforms()
-    return [
-        Iphoneos(),
-        IphoneSimulator_arm64(),
-        IphoneSimulator_x86_64(),
-        Android_arm64(),
-        Android_x86_64(),
-    ]
+        supported_types = {type(p) for p in wheel_cls.supported_platforms()}
+        filtered = [p for p in filtered if type(p) in supported_types]
+    return filtered
 
 
 def build_wheels(
@@ -72,11 +75,12 @@ def build_wheels(
                 wheel.build_wheel(working_dir, version, wheel_output)
 
 
-def compare_versions(name: str) -> list[BuildPlatform]:
+def compare_versions(name: str, wheel_cls: type[WheelBase] | None = None) -> list[BuildPlatform]:
     """Return platforms whose latest R2-published wheel lags pypi.
 
     Compares the latest PyPI version against what is already in the R2 index.
     If either lookup fails the function returns all build platforms (safe default).
+    When wheel_cls is given, only checks platforms that wheel supports.
     """
     pypi_version = _fetch_pypi_version(name)
     if pypi_version is None:
@@ -88,10 +92,17 @@ def compare_versions(name: str) -> list[BuildPlatform]:
     android_versions = [f["version"] for f in files if "android" in f["basename"]]
     ios_latest = max(ios_versions) if ios_versions else None
     android_latest = max(android_versions) if android_versions else None
+    if wheel_cls is not None:
+        sp = wheel_cls.supported_platforms()
+        check_ios = any(isinstance(p, (Iphoneos, IphoneSimulator_arm64, IphoneSimulator_x86_64)) for p in sp)
+        check_android = any(isinstance(p, (Android_arm64, Android_x86_64)) for p in sp)
+    else:
+        check_ios = True
+        check_android = True
     needed: list[BuildPlatform] = []
-    if ios_latest is None or pypi_version > ios_latest:
+    if check_ios and (ios_latest is None or pypi_version > ios_latest):
         needed.append(BuildPlatform.ios)
-    if android_latest is None or pypi_version > android_latest:
+    if check_android and (android_latest is None or pypi_version > android_latest):
         needed.append(BuildPlatform.android)
     if needed:
         print(f"\n############# {name} #############")
