@@ -73,19 +73,19 @@ def build_wheels(
 
 
 def compare_versions(name: str) -> list[BuildPlatform]:
-    """Return platforms whose latest anaconda upload lags pypi.
+    """Return platforms whose latest R2-published wheel lags pypi.
 
-    Mirrors Swift `compare_versions`. If pypi or anaconda lookup fails the
-    function returns all build platforms (safe default).
+    Compares the latest PyPI version against what is already in the R2 index.
+    If either lookup fails the function returns all build platforms (safe default).
     """
     pypi_version = _fetch_pypi_version(name)
     if pypi_version is None:
         return list(BuildPlatform)
-    files = _fetch_anaconda_files(name)
+    files = _fetch_r2_files(name)
     if files is None:
         return list(BuildPlatform)
-    ios_versions = [f["version"] for f in files if _is_ios(f.get("basename", ""))]
-    android_versions = [f["version"] for f in files if "android" in f.get("basename", "")]
+    ios_versions = [f["version"] for f in files if _is_ios(f["basename"])]
+    android_versions = [f["version"] for f in files if "android" in f["basename"]]
     ios_latest = max(ios_versions) if ios_versions else None
     android_latest = max(android_versions) if android_versions else None
     needed: list[BuildPlatform] = []
@@ -116,6 +116,29 @@ def _fetch_pypi_version(name: str) -> str | None:
     info = data.get("info") or {}
     version = info.get("version")
     return version if isinstance(version, str) else None
+
+
+R2_INDEX = "https://pypi-index.psychowaspx.workers.dev/simple"
+
+
+def _fetch_r2_files(name: str) -> list[dict] | None:
+    """Return [{basename, version}, ...] for all wheels in the R2 index for name."""
+    import re
+    normalized = re.sub(r"[-_.]+", "-", name).lower()
+    url = f"{R2_INDEX}/{normalized}/"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "WheelBuilder/1.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            html = resp.read().decode()
+    except (urllib.error.URLError, OSError):
+        return None
+    files = []
+    for href in re.findall(r'href="([^"]+\.whl)(?:#[^"]*)?"', html):
+        basename = href.split("/")[-1].split("#")[0]
+        parts = basename.split("-")
+        if len(parts) >= 2:
+            files.append({"basename": basename, "version": parts[1]})
+    return files
 
 
 def _fetch_anaconda_files(name: str) -> list[dict] | None:

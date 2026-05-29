@@ -73,15 +73,22 @@ class WheelBuilderCLI:
 
     def cmd_action_build(self, args: argparse.Namespace) -> None:
         output = Path(args.output)
+        failed: list[str] = []
         for name, wheel_cls in WHEELS.items():
-            if args.checks:
-                platforms = compare_versions(name)
-                if not platforms:
-                    continue
-                filter_ = platforms[0] if len(platforms) == 1 else None
-                build_wheels(wheel_cls, None, filter_, output)
-            else:
-                build_wheels(wheel_cls, None, None, output)
+            try:
+                if args.checks:
+                    platforms = compare_versions(name)
+                    if not platforms:
+                        continue
+                    filter_ = platforms[0] if len(platforms) == 1 else None
+                    build_wheels(wheel_cls, None, filter_, output)
+                else:
+                    build_wheels(wheel_cls, None, None, output)
+            except Exception as exc:
+                print(f"[FAILED] {name}: {exc}")
+                failed.append(name)
+        if failed:
+            raise SystemExit(f"Failed packages: {', '.join(failed)}")
 
     def cmd_pip_repo(self, args: argparse.Namespace) -> None:
         repo = RepoFolder(Path(args.src_folder))
