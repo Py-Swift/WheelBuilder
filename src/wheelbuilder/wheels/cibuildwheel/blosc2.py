@@ -22,7 +22,7 @@ class Blosc2(CiWheelBase):
         env["CIBW_ENVIRONMENT_IOS"] = " ".join(
             [
                 'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
-                'SKBUILD_CMAKE_ARGS="-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_ios_miniexpr -C /tmp/blosc2_cmake_init.cmake"',
+                'SKBUILD_CMAKE_ARGS="-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_ios_miniexpr;-C;/tmp/blosc2_cmake_init.cmake"',
             ]
         )
         env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
