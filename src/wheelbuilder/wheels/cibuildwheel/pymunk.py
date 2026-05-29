@@ -10,7 +10,7 @@ class Pymunk(CiWheelBase):
             env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
                 [
                     'LDFLAGS="$LDFLAGS -llog -lm"',
-                    'PIP_EXTRA_INDEX_URL="https://pypi.anaconda.org/pyswift/simple"',
+                    'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
                 ]
             )
         return env

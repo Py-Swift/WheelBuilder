@@ -22,7 +22,7 @@ class Pandas(MesonWheelBase):
         wheels_dir = getattr(self, "_wheels_dir", None)
         env["CIBW_ENVIRONMENT_IOS"] = " ".join(
             [
-                'PIP_EXTRA_INDEX_URL="https://pypi.anaconda.org/pyswift/simple"',
+                'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
                 'PIP_PREFER_BINARY="1"',
                 'CFLAGS="-g0"',
                 'LDFLAGS=""',

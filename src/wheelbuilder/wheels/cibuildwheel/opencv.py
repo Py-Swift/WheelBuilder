@@ -14,7 +14,7 @@ class Opencv(CiWheelBase):
         env = self.base_env()
         env["CIBW_ENVIRONMENT_IOS"] = " ".join(
             [
-                'PIP_EXTRA_INDEX_URL="https://pypi.anaconda.org/pyswift/simple"',
+                'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
                 'CI_BUILD="1"',
                 'OPENCV_PYTHON_SKIP_GIT_COMMANDS="1"',
                 f'CMAKE_ARGS="-DCMAKE_OSX_SYSROOT=$(xcrun --sdk {self.platform.sdk} --show-sdk-path)"',
