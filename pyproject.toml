@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "wheelbuilder"
@@ -11,6 +11,5 @@ requires-python = ">=3.11"
 [project.scripts]
 wheelbuilder = "wheelbuilder.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["wheelbuilder*"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/wheelbuilder"]
