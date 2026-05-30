@@ -1,12 +1,36 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 from wheelbuilder.builder import BuildPlatform, build_wheels, compare_versions
 from wheelbuilder.piprepo import RepoFolder
 from wheelbuilder.registry import WHEELS
+
+
+def _write_build_summary(failed: list[str]) -> None:
+    """Print a build summary and write it to $GITHUB_STEP_SUMMARY if available."""
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not failed:
+        print("\n✅ All packages built successfully.\n")
+        if summary_path:
+            with open(summary_path, "a") as f:
+                f.write("## ✅ All packages built successfully\n")
+        return
+    sep = "=" * 60
+    print(f"\n{sep}")
+    print(f"⚠️  FAILED ({len(failed)}):")
+    for name in failed:
+        print(f"  ✗ {name}")
+    print(f"{sep}\n")
+    if summary_path:
+        with open(summary_path, "a") as f:
+            f.write(f"## ⚠️ Failed Packages ({len(failed)})\n\n")
+            for name in failed:
+                f.write(f"- `{name}`\n")
+            f.write("\n> These packages will be retried on the next scheduled run.\n")
 
 
 class WheelBuilderCLI:
@@ -64,12 +88,17 @@ class WheelBuilderCLI:
         if wheel_cls is None:
             raise SystemExit(f"unsupported package: {args.package}")
         platform = BuildPlatform(args.platform) if args.platform else None
-        build_wheels(wheel_cls, args.version, platform, Path(args.output))
+        failures = build_wheels(wheel_cls, args.version, platform, Path(args.output))
+        if failures:
+            raise SystemExit(f"Build failures: {', '.join(failures)}")
 
     def cmd_build_all(self, args: argparse.Namespace) -> None:
         platform = BuildPlatform(args.platform) if args.platform else None
+        all_failures: list[str] = []
         for wheel_cls in WHEELS.values():
-            build_wheels(wheel_cls, None, platform, Path(args.output))
+            all_failures.extend(build_wheels(wheel_cls, None, platform, Path(args.output)))
+        if all_failures:
+            raise SystemExit("Build failures:\n" + "\n".join(f"  {f}" for f in all_failures))
 
     def cmd_action_build(self, args: argparse.Namespace) -> None:
         output = Path(args.output)
@@ -81,14 +110,13 @@ class WheelBuilderCLI:
                     if not platforms:
                         continue
                     filter_ = platforms[0] if len(platforms) == 1 else None
-                    build_wheels(wheel_cls, None, filter_, output)
+                    failed.extend(build_wheels(wheel_cls, None, filter_, output))
                 else:
-                    build_wheels(wheel_cls, None, None, output)
+                    failed.extend(build_wheels(wheel_cls, None, None, output))
             except Exception as exc:
                 print(f"[FAILED] {name}: {exc}")
                 failed.append(name)
-        if failed:
-            raise SystemExit(f"Failed packages: {', '.join(failed)}")
+        _write_build_summary(failed)
 
     def cmd_pip_repo(self, args: argparse.Namespace) -> None:
         repo = RepoFolder(Path(args.src_folder))

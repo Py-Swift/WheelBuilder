@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 from enum import Enum
@@ -52,7 +53,9 @@ def build_wheels(
     version: str | None,
     platform_filter: BuildPlatform | None,
     wheel_output: Path,
-) -> None:
+) -> list[str]:
+    """Build wheels for all platforms. Returns a list of failure strings (empty = all OK)."""
+    failures: list[str] = []
     with tools.with_temp() as working_dir:
         platforms = resolve_platforms(platform_filter, wheel_cls)
         for platform in platforms:
@@ -72,7 +75,13 @@ def build_wheels(
                 lib.post_build_library(working_dir)
 
             if isinstance(wheel, CiWheelBase):
-                wheel.build_wheel(working_dir, version, wheel_output)
+                try:
+                    wheel.build_wheel(working_dir, version, wheel_output)
+                except Exception as exc:
+                    label = f"{wheel_cls.name} [{platform.ci_platform}/{platform.ci_archs}]"
+                    print(f"[FAILED] {label}: {exc}")
+                    failures.append(label)
+    return failures
 
 
 def compare_versions(name: str, wheel_cls: type[WheelBase] | None = None) -> list[BuildPlatform]:

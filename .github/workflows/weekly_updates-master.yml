@@ -69,7 +69,9 @@ jobs:
           uv run wheelbuilder action-build $PWD/output/wheels --checks
 
       - id: needs_upload
+        if: always()
         run: |
+          mkdir -p output/wheels
           ls output/wheels
           if find output/wheels -mindepth 1 -maxdepth 1 | read; then
             echo "var=true" >> $GITHUB_OUTPUT
@@ -82,7 +84,7 @@ jobs:
           echo "${{ steps.needs_upload.outputs.var }}"
 
       - uses: actions/upload-artifact@v4
-        if: steps.needs_upload.outputs.var == 'true'
+        if: always() && steps.needs_upload.outputs.var == 'true'
         with:
           name: wheels-output
           path: ./output
@@ -90,7 +92,7 @@ jobs:
   r2_upload:
     name: Upload to R2
     needs: [build]
-    if: needs.build.outputs.needs_upload == 'true'
+    if: always() && needs.build.outputs.needs_upload == 'true'
     uses: ./.github/workflows/r2-upload.yml
     secrets: inherit
 
