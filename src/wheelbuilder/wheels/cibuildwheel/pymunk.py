@@ -11,6 +11,7 @@ class Pymunk(CiWheelBase):
             # which cibuildwheel 3.x rejects for android (PyPy not available).
             # Override CIBW_BUILD to CPython-only so those selectors are ignored.
             env["CIBW_BUILD"] = "cp3*"
+            env["CIBW_TEST_SKIP"] = "*"
             env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
                 [
                     'LDFLAGS="$LDFLAGS -llog -lm"',

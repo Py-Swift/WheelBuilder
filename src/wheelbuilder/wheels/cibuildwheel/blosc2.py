@@ -16,7 +16,7 @@ class Blosc2(CiWheelBase):
                 "rm -rf $MINIEXPR_SRC",
                 "git clone --depth 1 https://github.com/Blosc/miniexpr.git $MINIEXPR_SRC",
                 "cd $MINIEXPR_SRC && git fetch --depth 1 origin f2faef741c4c507bf6a03167c72ce7f92c6f0ae8 && git checkout f2faef741c4c507bf6a03167c72ce7f92c6f0ae8",
-                "sed -i '' 's/int rc = system(cmd);/int rc = -1; (void)cmd;/' $MINIEXPR_SRC/src/miniexpr.c",
+                "sed -i '' 's/int rc = system(cmd);/int rc = -1; (void)cmd;/' $MINIEXPR_SRC/src/*.c",
             ]
         )
         env["CIBW_ENVIRONMENT_IOS"] = " ".join(
