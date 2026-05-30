@@ -17,12 +17,21 @@ class Blosc2(CiWheelBase):
                 "git clone --depth 1 https://github.com/Blosc/miniexpr.git $MINIEXPR_SRC",
                 "cd $MINIEXPR_SRC && git fetch --depth 1 origin f2faef741c4c507bf6a03167c72ce7f92c6f0ae8 && git checkout f2faef741c4c507bf6a03167c72ce7f92c6f0ae8",
                 "sed -i '' 's/int rc = system(cmd);/int rc = -1; (void)cmd;/' $MINIEXPR_SRC/src/*.c",
+                # merge_static_libs.cmake only uses libtool when SYSTEM_NAME=Darwin.
+                # For iOS cross-compile CMAKE_SYSTEM_NAME=iOS, so it falls through to
+                # ar -M (GNU ar MRI script) which macOS ar doesn't support.
+                # Fix: clone c-blosc2, patch the cmake script to also handle iOS, then
+                # tell FetchContent to use our patched local copy.
+                "CBLOSC2_SRC=/tmp/blosc2_ios_cblosc2",
+                "rm -rf $CBLOSC2_SRC",
+                "git clone --depth 1 --branch v3.0.3 https://github.com/Blosc/c-blosc2.git $CBLOSC2_SRC",
+                "sed -i '' 's/STREQUAL \"Darwin\")/STREQUAL \"Darwin\" OR SYSTEM_NAME STREQUAL \"iOS\")/' $CBLOSC2_SRC/cmake/merge_static_libs.cmake",
             ]
         )
         env["CIBW_ENVIRONMENT_IOS"] = " ".join(
             [
                 'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
-                'SKBUILD_CMAKE_ARGS="-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_ios_miniexpr;-C;/tmp/blosc2_cmake_init.cmake"',
+                'SKBUILD_CMAKE_ARGS="-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_ios_miniexpr;-DFETCHCONTENT_SOURCE_DIR_BLOSC2=/tmp/blosc2_ios_cblosc2;-C;/tmp/blosc2_cmake_init.cmake"',
             ]
         )
         env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"

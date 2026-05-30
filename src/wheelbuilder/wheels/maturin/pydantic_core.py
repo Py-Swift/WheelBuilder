@@ -16,7 +16,8 @@ class Pydantic_core(MaturinWheelBase):
                 "p=pathlib.Path(d);"
                 'f=list(p.glob("_sysconfigdata*.py"));'
                 's="cpython-{}{}-arm-apple-ios".format(*sys.version_info[:2]);'
-                'f or (p/"_sysconfigdata__arm-apple-ios.py").write_text("build_time_vars="+json.dumps({"SOABI":s}))'
+                'v="{}.{}".format(*sys.version_info[:2]);'
+                'f or (p/"_sysconfigdata__arm-apple-ios.py").write_text("build_time_vars="+json.dumps({"SOABI":s,"VERSION":v,"LDVERSION":v,"EXT_SUFFIX":"."+s+".so","Py_DEBUG":"0","Py_GIL_DISABLED":"0"}))'
                 "'"
             )
             existing = e.get("CIBW_BEFORE_BUILD", "pip install maturin")
