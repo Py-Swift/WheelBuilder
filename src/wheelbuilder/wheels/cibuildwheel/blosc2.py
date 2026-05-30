@@ -45,6 +45,35 @@ sed -i '' 's/STREQUAL "Darwin")/STREQUAL "Darwin" OR SYSTEM_NAME STREQUAL "iOS")
         # init file using importlib.util.find_spec (no import, just path lookup).
         env["CIBW_BEFORE_BUILD_ANDROID"] = """\
 pip install 'scikit-build-core>=0.11.0' 'cython>=3' 'numpy>=2.1'
+python3 - << 'SCPATCH'
+import pathlib, importlib.util as _il
+spec = _il.find_spec('scikit_build_core')
+if spec and spec.submodule_search_locations:
+    sc_dir = pathlib.Path(list(spec.submodule_search_locations)[0])
+    sysc = sc_dir / 'builder' / 'sysconfig.py'
+    if sysc.exists():
+        t = sysc.read_text()
+        old = '''def get_numpy_include_dir() -> Path | None:
+    try:
+        import numpy as np
+    except ImportError:
+        return None
+
+    return Path(np.get_include())'''
+        new = '''def get_numpy_include_dir() -> Path | None:
+    import importlib.util as _iu
+    spec = _iu.find_spec("numpy")
+    if spec is None or spec.origin is None:
+        return None
+    np_dir = Path(spec.origin).parent
+    for subdir in ("_core/include", "core/include"):
+        candidate = np_dir / subdir
+        if candidate.is_dir():
+            return candidate
+    return np_dir / "_core" / "include"'''
+        if old in t:
+            sysc.write_text(t.replace(old, new))
+SCPATCH
 python3 - << 'PYEOF'
 import sys, os, importlib.util
 spec = importlib.util.find_spec('numpy')

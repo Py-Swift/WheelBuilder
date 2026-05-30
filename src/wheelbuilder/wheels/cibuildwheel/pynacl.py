@@ -6,28 +6,37 @@ class Pynacl(CiWheelBase):
     def env(self):
         env = self.base_env()
         if self.platform.sdk == SDK.android:
-            env["CIBW_ENVIRONMENT_ANDROID"] = 'SODIUM_INSTALL="bundled" PKG_CONFIG_PATH=""'
-            # {package} expands to the absolute path of the pynacl source dir.
-            # CIBW_HOST_TRIPLET is set by cibuildwheel before BEFORE_BUILD runs
-            # (e.g. "aarch64-linux-android"). Passing --host and
-            # --enable-android-cross-compilation to libsodium configure prevents
-            # it from exiting 77 (AC_MSG_FAILURE) on cross-compile AC_TRY_RUN tests.
+            env["CIBW_ENVIRONMENT_ANDROID"] = 'SODIUM_INSTALL="bundled" PKG_CONFIG_PATH="" MAKE=/tmp/pynacl_make_wrapper'
+            # Wrap libsodium's configure to add --host at runtime (reading CC since
+            # CIBW_HOST_TRIPLET is not available in before_build env, only android_env).
+            # Wrap make so that "make check" is skipped for Android cross-compilation.
             env["CIBW_BEFORE_BUILD_ANDROID"] = """\
-python3 - "{package}" << 'PYEOF'
-import sys, os
-src = sys.argv[1]
-host = os.environ.get('CIBW_HOST_TRIPLET', '')
-if host and 'linux-android' in host:
-    setup = os.path.join(src, 'setup.py')
-    with open(setup) as f:
-        t = f.read()
-    t = t.replace(
-        '"--with-pic",',
-        '"--with-pic", "--host=' + host + '", "--enable-android-cross-compilation",',
-    )
-    with open(setup, 'w') as f:
-        f.write(t)
-PYEOF"""
+SRC="{package}/src/libsodium"
+if [ ! -f "$SRC/configure.orig" ]; then
+    mv "$SRC/configure" "$SRC/configure.orig"
+fi
+cat > "$SRC/configure" << 'CONFSCRIPT'
+#!/bin/sh
+SDIR=$(cd "$(dirname "$0")" && pwd)
+CC_BASE=$(basename "${CC:-}")
+HOST=$(echo "$CC_BASE" | sed 's/[0-9]*-clang$//')
+if echo "$HOST" | grep -q 'linux-android'; then
+    exec "$SDIR/configure.orig" --host="$HOST" "$@"
+else
+    exec "$SDIR/configure.orig" "$@"
+fi
+CONFSCRIPT
+chmod +x "$SRC/configure"
+cat > /tmp/pynacl_make_wrapper << 'MAKESCRIPT'
+#!/bin/sh
+if [ "$1" = "check" ] && echo "${CC:-}" | grep -q 'linux-android'; then
+    echo "Skipping make check for Android cross-compilation"
+    exit 0
+fi
+unset MAKE
+exec make "$@"
+MAKESCRIPT
+chmod +x /tmp/pynacl_make_wrapper"""
         else:
             # iOS: with default build isolation pip installs cffi iOS binary into
             # the isolated venv, but macOS Python can't import the iOS-targeted
@@ -37,7 +46,7 @@ PYEOF"""
             # Also patch setup.py so libsodium configure gets --host (cross-compile
             # mode) and make check is skipped (can't run iOS binaries on macOS).
             # {package} expands to the absolute path of the pynacl source dir.
-            env["CIBW_BUILD_FRONTEND_IOS"] = "pip; args: --no-build-isolation"
+            env["CIBW_BUILD_FRONTEND"] = "build; args: --no-isolation"
             env["CIBW_BEFORE_BUILD_IOS"] = """\
 python3 -m pip download --only-binary :all: --platform macosx_11_0_arm64 --python-version "$(python3 -c 'import sys; v=sys.version_info; print(str(v[0])+"."+str(v[1]))')" --implementation cp cffi -d /tmp/pynacl_cffi_dl --quiet
 python3 - << 'CFFIEOF'
