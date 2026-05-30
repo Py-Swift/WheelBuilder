@@ -39,6 +39,35 @@ sed -i '' 's/STREQUAL "Darwin")/STREQUAL "Darwin" OR SYSTEM_NAME STREQUAL "iOS")
             ]
         )
         env["CIBW_BUILD_FRONTEND"] = "build; args: --no-isolation"
+        # Android: scikit-build-core calls get_numpy_include_dir() which does
+        # `import numpy` — numpy's ctypes tries dlopen(libpython3.13.so) which
+        # doesn't exist on macOS. Provide Python_NumPy_INCLUDE_DIRS via a cmake
+        # init file using importlib.util.find_spec (no import, just path lookup).
+        env["CIBW_BEFORE_BUILD_ANDROID"] = """\
+pip install 'scikit-build-core>=0.11.0' 'cython>=3' 'numpy>=2.1'
+python3 - << 'PYEOF'
+import sys, os, importlib.util
+spec = importlib.util.find_spec('numpy')
+np_dir = os.path.dirname(spec.origin) if spec and spec.origin else ''
+ni = next((os.path.join(np_dir, d) for d in ('_core/include', 'core/include') if os.path.isdir(os.path.join(np_dir, d))), np_dir + '/_core/include')
+with open('/tmp/blosc2_android_cmake_init.cmake', 'w') as f:
+    f.write('set(Python_EXECUTABLE "' + sys.executable + '" CACHE FILEPATH "" FORCE)\\n')
+    f.write('set(Python_NumPy_INCLUDE_DIRS "' + ni + '" CACHE PATH "" FORCE)\\n')
+PYEOF
+MINIEXPR_SRC=/tmp/blosc2_android_miniexpr
+rm -rf $MINIEXPR_SRC
+git clone --depth 1 https://github.com/Blosc/miniexpr.git $MINIEXPR_SRC
+cd $MINIEXPR_SRC && git fetch --depth 1 origin f2faef741c4c507bf6a03167c72ce7f92c6f0ae8 && git checkout f2faef741c4c507bf6a03167c72ce7f92c6f0ae8
+sed -i '' 's/int rc = system(cmd);/int rc = -1; (void)cmd;/' $MINIEXPR_SRC/src/*.c
+CBLOSC2_SRC=/tmp/blosc2_android_cblosc2
+rm -rf $CBLOSC2_SRC
+git clone --depth 1 --branch v3.0.3 https://github.com/Blosc/c-blosc2.git $CBLOSC2_SRC"""
+        env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
+            [
+                'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
+                'SKBUILD_CMAKE_ARGS="-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_android_miniexpr;-DFETCHCONTENT_SOURCE_DIR_BLOSC2=/tmp/blosc2_android_cblosc2;-C;/tmp/blosc2_android_cmake_init.cmake"',
+            ]
+        )
         return env
 
     def patches(self):
