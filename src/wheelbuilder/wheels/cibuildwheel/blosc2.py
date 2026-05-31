@@ -83,9 +83,14 @@ with open('/tmp/blosc2_android_cmake_init.cmake', 'w') as f:
     f.write('set(Python_EXECUTABLE "' + sys.executable + '" CACHE FILEPATH "" FORCE)\\n')
     f.write('set(Python_NumPy_INCLUDE_DIRS "' + ni + '" CACHE PATH "" FORCE)\\n')
     f.write('set(ANDROID_PLATFORM_LEVEL 24 CACHE STRING "" FORCE)\\n')
-    # Android Bionic includes realtime functions in libc; librt does not exist
-    f.write('string(REPLACE "-lrt" "" CMAKE_C_STANDARD_LIBRARIES "${CMAKE_C_STANDARD_LIBRARIES}")\\n')
-    f.write('string(REPLACE "-lrt" "" CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES}")\\n')
+    # Android Bionic has no separate librt; clock/timer functions are in libc.
+    # Prevent find_library(LIB_RT rt) from succeeding so blosc2/zfp cmake
+    # don't add -lrt to target_link_libraries.
+    f.write('set(LIB_RT "" CACHE FILEPATH "rt library" FORCE)\\n')
+    f.write('set(RT_LIBRARY "" CACHE FILEPATH "rt library" FORCE)\\n')
+    # Also scrub it from standard library lists just in case
+    f.write('set(CMAKE_C_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)\\n')
+    f.write('set(CMAKE_CXX_STANDARD_LIBRARIES "" CACHE STRING "" FORCE)\\n')
 PYEOF
 MINIEXPR_SRC=/tmp/blosc2_android_miniexpr
 rm -rf $MINIEXPR_SRC
@@ -123,7 +128,9 @@ else:
 MINIEXPRPATCH
 CBLOSC2_SRC=/tmp/blosc2_android_cblosc2
 rm -rf $CBLOSC2_SRC
-git clone --depth 1 --branch v3.0.3 https://github.com/Blosc/c-blosc2.git $CBLOSC2_SRC"""
+git clone --depth 1 --branch v3.0.3 https://github.com/Blosc/c-blosc2.git $CBLOSC2_SRC
+# Remove hardcoded -lrt: Android Bionic has no separate librt
+sed -i '' '/set(LIBS \${LIBS} "rt")/d' $CBLOSC2_SRC/blosc/CMakeLists.txt"""
         env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
             [
                 'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
