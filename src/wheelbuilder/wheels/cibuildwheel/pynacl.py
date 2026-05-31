@@ -87,8 +87,8 @@ with open(setup) as f:
     t = f.read()
 t = t.replace('"--with-pic",', '"--with-pic", "--host=' + host + '",')
 t = t.replace(
-    'subprocess.check_call([make_command, "check"]',
-    'if False: subprocess.check_call([make_command, "check"]',
+    'subprocess.check_call(["make", "check"]',
+    'if False: subprocess.check_call(["make", "check"]',
 )
 with open(setup, 'w') as f:
     f.write(t)
