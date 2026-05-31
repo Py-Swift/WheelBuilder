@@ -1,0 +1,53 @@
+name: Debug pynacl
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'pynacl version'
+        required: true
+        default: '1.5.0'
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build pynacl iOS+Android
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.13'
+
+      - name: install cibuildwheel
+        run: uv pip install cibuildwheel
+
+      - name: install android ndk
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r28c
+
+      - name: build pynacl iOS and Android wheels
+        run: |
+          mkdir -p output/wheels
+          export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
+          export ANDROID_API_LEVEL=24
+          uv run wheelbuilder build pynacl $PWD/output/wheels \
+            --version ${{ github.event.inputs.version }} \
+            --platform ios --platform android
+
+      - name: list output
+        if: always()
+        run: find output/wheels -name "*.whl" | sort
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pynacl-wheels
+          path: ./output/wheels
