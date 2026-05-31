@@ -93,13 +93,13 @@ python3 - << 'MINIEXPRPATCH'
 import pathlib
 f = pathlib.Path('/tmp/blosc2_android_miniexpr/src/functions.c')
 t = f.read_text()
-old = '#define me_cpowf cpowf\n#define me_cpow cpow'
+old = '#define me_cpowf cpowf\\n#define me_cpow cpow'
 new = (
     'static inline float _Complex me_cpowf_android(float _Complex a, float _Complex b)'
-    ' { return cexpf(b * clogf(a)); }\n'
+    ' { return cexpf(b * clogf(a)); }\\n'
     'static inline double _Complex me_cpow_android(double _Complex a, double _Complex b)'
-    ' { return cexp(b * clog(a)); }\n'
-    '#define me_cpowf me_cpowf_android\n'
+    ' { return cexp(b * clog(a)); }\\n'
+    '#define me_cpowf me_cpowf_android\\n'
     '#define me_cpow me_cpow_android'
 )
 if old in t:
