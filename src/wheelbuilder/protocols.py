@@ -149,6 +149,19 @@ class WheelBase:
             tools.patch_file(patch_path, target)
 
     @classmethod
+    def source_version(cls) -> str | None:
+        """Return a pinned version string for packages not sourced from PyPI.
+        If None, compare_versions falls back to fetching the PyPI latest."""
+        return None
+
+    @classmethod
+    def r2_name(cls) -> str:
+        """Package name used to look up wheels in the R2 index.
+        Defaults to cls.name; override when the wheel name differs from the
+        registry key (e.g. 'ffmpeg' registry key but 'libffmpeg' wheel name)."""
+        return cls.name
+
+    @classmethod
     def supported_platforms(cls) -> list[PlatformBase]:
         return [
             Iphoneos(),

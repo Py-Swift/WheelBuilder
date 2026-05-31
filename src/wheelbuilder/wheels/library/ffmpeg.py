@@ -11,6 +11,14 @@ _DEFAULT_VERSION = "8.0.1"
 
 
 class Ffmpeg(CiWheelBase):
+    @classmethod
+    def source_version(cls) -> str:
+        return _DEFAULT_VERSION
+
+    @classmethod
+    def r2_name(cls) -> str:
+        return "libffmpeg"
+
     @property
     def build_target(self) -> BuildTarget:
         v = self.version or _DEFAULT_VERSION

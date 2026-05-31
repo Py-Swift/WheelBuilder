@@ -85,16 +85,22 @@ def build_wheels(
 
 
 def compare_versions(name: str, wheel_cls: type[WheelBase] | None = None) -> list[BuildPlatform]:
-    """Return platforms whose latest R2-published wheel lags pypi.
+    """Return platforms whose latest R2-published wheel lags the source version.
 
-    Compares the latest PyPI version against what is already in the R2 index.
-    If either lookup fails the function returns all build platforms (safe default).
-    When wheel_cls is given, only checks platforms that wheel supports.
+    For packages with a pinned source_version() that is not from PyPI, that
+    version is compared directly against R2.  For all others, the latest PyPI
+    version is fetched.  If any lookup fails the function returns all build
+    platforms (safe default).  When wheel_cls is given, only checks platforms
+    that the wheel supports.
     """
-    pypi_version = _fetch_pypi_version(name)
-    if pypi_version is None:
+    if wheel_cls is not None and wheel_cls.source_version() is not None:
+        source_version = wheel_cls.source_version()
+    else:
+        source_version = _fetch_pypi_version(name)
+    if source_version is None:
         return list(BuildPlatform)
-    files = _fetch_r2_files(name)
+    r2_key = wheel_cls.r2_name() if wheel_cls is not None else name
+    files = _fetch_r2_files(r2_key)
     if files is None:
         return list(BuildPlatform)
     ios_versions = [f["version"] for f in files if _is_ios(f["basename"])]
@@ -109,13 +115,13 @@ def compare_versions(name: str, wheel_cls: type[WheelBase] | None = None) -> lis
         check_ios = True
         check_android = True
     needed: list[BuildPlatform] = []
-    if check_ios and (ios_latest is None or pypi_version > ios_latest):
+    if check_ios and (ios_latest is None or source_version > ios_latest):
         needed.append(BuildPlatform.ios)
-    if check_android and (android_latest is None or pypi_version > android_latest):
+    if check_android and (android_latest is None or source_version > android_latest):
         needed.append(BuildPlatform.android)
     if needed:
         print(f"\n############# {name} #############")
-        print(f"pypi version:    {pypi_version}")
+        print(f"source version:  {source_version}")
         print(f"ios latest:      {ios_latest or 'missing'}")
         print(f"android latest:  {android_latest or 'missing'}")
         print(f"needs build:     {', '.join(p.value for p in needed)}")
@@ -161,11 +167,4 @@ def _fetch_r2_files(name: str) -> list[dict] | None:
     return files
 
 
-def _fetch_anaconda_files(name: str) -> list[dict] | None:
-    try:
-        with urllib.request.urlopen(f"https://api.anaconda.org/package/pyswift/{name}") as resp:
-            data = json.load(resp)
-    except (urllib.error.URLError, json.JSONDecodeError):
-        return None
-    files = data.get("files")
-    return files if isinstance(files, list) else None
+
