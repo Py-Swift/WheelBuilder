@@ -1,4 +1,4 @@
-name: Debug pydantic_core iOS
+name: Debug pydantic_core
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   build:
-    name: Build pydantic_core iOS
+    name: Build pydantic_core (iOS + Android)
     runs-on: macos-15
 
     steps:
@@ -32,23 +32,36 @@ jobs:
           uv pip install cibuildwheel
           uv pip install maturin
 
-      - name: install rust ios targets
+      - name: install rust targets
         run: |
           rustup target add aarch64-apple-ios
           rustup target add aarch64-apple-ios-sim
           rustup target add x86_64-apple-ios
+          rustup target add aarch64-linux-android
+          rustup target add x86_64-linux-android
 
-      - name: build pydantic_core iOS wheel
+      - name: install android ndk
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r28c
+
+      - name: build pydantic_core wheels
         run: |
           mkdir -p output/wheels
           uv run wheelbuilder build pydantic_core $PWD/output/wheels \
             --version ${{ github.event.inputs.version }} \
             --platform ios
+          export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
+          export ANDROID_API_LEVEL=24
+          uv run wheelbuilder build pydantic_core $PWD/output/wheels \
+            --version ${{ github.event.inputs.version }} \
+            --platform android
 
       - name: list output
         run: find output/wheels -name "*.whl" | sort
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pydantic_core-ios-wheels
+          name: pydantic_core-wheels
           path: ./output/wheels
