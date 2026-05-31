@@ -104,6 +104,8 @@ class WheelBuilderCLI:
         output = Path(args.output)
         failed: list[str] = []
         for name, wheel_cls in WHEELS.items():
+            if not wheel_cls.weekly():
+                continue
             try:
                 if args.checks:
                     platforms = compare_versions(name, wheel_cls)

@@ -16,6 +16,10 @@ class Ffmpeg(CiWheelBase):
         return _DEFAULT_VERSION
 
     @classmethod
+    def weekly(cls) -> bool:
+        return False
+
+    @classmethod
     def r2_name(cls) -> str:
         return "libffmpeg"
 
