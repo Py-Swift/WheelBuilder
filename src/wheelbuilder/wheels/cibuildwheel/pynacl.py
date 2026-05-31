@@ -77,7 +77,7 @@ for n in z.namelist():
         t.parent.mkdir(parents=True, exist_ok=True)
         t.write_bytes(z.read(n))
 CFFIEOF
-pip install setuptools wheel
+pip install setuptools wheel pycparser
 python3 - "{package}" << 'PYEOF'
 import sys, os
 cc = os.environ.get('CC', os.environ.get('CXX', '')).split('/')[-1]
