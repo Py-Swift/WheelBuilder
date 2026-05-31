@@ -30,8 +30,8 @@ class Pydantic_core(MaturinWheelBase):
                 "pathlib.Path('/tmp/pyo3_ios_config.txt').write_text(cfg)"
                 "\""
             )
-            existing = e.get("CIBW_BEFORE_BUILD", "pip install maturin")
-            e["CIBW_BEFORE_BUILD_IOS"] = f"{gen_config} && {existing}"
+            existing = e.get("CIBW_BEFORE_BUILD", "")
+            e["CIBW_BEFORE_BUILD_IOS"] = f"{gen_config} && {existing}".rstrip(" &")
             existing_ios_env = e.get("CIBW_ENVIRONMENT_IOS", "")
             e["CIBW_ENVIRONMENT_IOS"] = f"{existing_ios_env} PYO3_CONFIG_FILE=/tmp/pyo3_ios_config.txt".strip()
         return e
