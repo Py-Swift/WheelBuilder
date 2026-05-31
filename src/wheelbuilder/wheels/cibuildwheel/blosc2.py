@@ -89,6 +89,25 @@ rm -rf $MINIEXPR_SRC
 git clone --depth 1 https://github.com/Blosc/miniexpr.git $MINIEXPR_SRC
 cd $MINIEXPR_SRC && git fetch --depth 1 origin f2faef741c4c507bf6a03167c72ce7f92c6f0ae8 && git checkout f2faef741c4c507bf6a03167c72ce7f92c6f0ae8
 sed -i '' 's/int rc = system(cmd);/int rc = -1; (void)cmd;/' $MINIEXPR_SRC/src/*.c
+python3 - << 'MINIEXPRPATCH'
+import pathlib
+f = pathlib.Path('/tmp/blosc2_android_miniexpr/src/functions.c')
+t = f.read_text()
+old = '#define me_cpowf cpowf\n#define me_cpow cpow'
+new = (
+    'static inline float _Complex me_cpowf_android(float _Complex a, float _Complex b)'
+    ' { return cexpf(b * clogf(a)); }\n'
+    'static inline double _Complex me_cpow_android(double _Complex a, double _Complex b)'
+    ' { return cexp(b * clog(a)); }\n'
+    '#define me_cpowf me_cpowf_android\n'
+    '#define me_cpow me_cpow_android'
+)
+if old in t:
+    f.write_text(t.replace(old, new))
+    print('Patched me_cpowf/me_cpow in miniexpr functions.c')
+else:
+    print('WARNING: cpowf/cpow pattern not found in functions.c')
+MINIEXPRPATCH
 CBLOSC2_SRC=/tmp/blosc2_android_cblosc2
 rm -rf $CBLOSC2_SRC
 git clone --depth 1 --branch v3.0.3 https://github.com/Blosc/c-blosc2.git $CBLOSC2_SRC"""
