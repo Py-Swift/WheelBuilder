@@ -21,6 +21,16 @@ class Opencv(CiWheelBase):
             ]
         )
         env["CIBW_XBUILD_TOOLS_IOS"] = "cmake ninja"
+        env["CIBW_BEFORE_BUILD_IOS"] = (
+            "python -c \""
+            "import pathlib; "
+            "f = pathlib.Path('pyproject.toml'); "
+            "t = f.read_text(); "
+            "t2 = t.replace('numpy==2.3.2', 'numpy>=2.3.2'); "
+            "f.write_text(t2); "
+            "print('[WheelBuilder] relaxed numpy==2.3.2 -> >=2.3.2' if t2 != t else '[WheelBuilder] numpy pin not found, skipping')"
+            "\""
+        )
         if self.platform.sdk == SDK.android:
             env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
                 [
