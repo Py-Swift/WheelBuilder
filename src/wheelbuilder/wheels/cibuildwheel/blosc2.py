@@ -83,6 +83,9 @@ with open('/tmp/blosc2_android_cmake_init.cmake', 'w') as f:
     f.write('set(Python_EXECUTABLE "' + sys.executable + '" CACHE FILEPATH "" FORCE)\\n')
     f.write('set(Python_NumPy_INCLUDE_DIRS "' + ni + '" CACHE PATH "" FORCE)\\n')
     f.write('set(ANDROID_PLATFORM_LEVEL 24 CACHE STRING "" FORCE)\\n')
+    # Android Bionic includes realtime functions in libc; librt does not exist
+    f.write('string(REPLACE "-lrt" "" CMAKE_C_STANDARD_LIBRARIES "${CMAKE_C_STANDARD_LIBRARIES}")\\n')
+    f.write('string(REPLACE "-lrt" "" CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES}")\\n')
 PYEOF
 MINIEXPR_SRC=/tmp/blosc2_android_miniexpr
 rm -rf $MINIEXPR_SRC
