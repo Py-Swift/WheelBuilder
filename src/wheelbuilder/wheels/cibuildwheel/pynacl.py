@@ -56,7 +56,12 @@ chmod +x /tmp/pynacl_ldshared"""
             # Also patch setup.py so libsodium configure gets --host (cross-compile
             # mode) and make check is skipped (can't run iOS binaries on macOS).
             # {package} expands to the absolute path of the pynacl source dir.
-            env["CIBW_BUILD_FRONTEND"] = "build; args: --no-isolation"
+            # Use pip wheel --no-build-isolation instead of python -m build
+            # --no-isolation. The `build` frontend runs a pre-build dependency
+            # check (importlib.metadata) that reports cffi as missing even when
+            # the binary is in site-packages. `pip wheel` skips that check and
+            # calls the build backend directly, so cffi only needs to be importable.
+            env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
             env["CIBW_BEFORE_BUILD_IOS"] = """\
 python3 -m pip download --only-binary :all: --platform macosx_11_0_arm64 --python-version "$(python3 -c 'import sys; v=sys.version_info; print(str(v[0])+"."+str(v[1]))')" --implementation cp cffi -d /tmp/pynacl_cffi_dl --quiet
 python3 - << 'CFFIEOF'
