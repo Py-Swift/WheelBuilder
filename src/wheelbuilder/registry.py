@@ -31,6 +31,18 @@ from wheelbuilder.wheels.maturin.pendulum import Pendulum
 from wheelbuilder.wheels.maturin.pydantic_core import Pydantic_core
 
 
+# Packages excluded from the weekly auto-update scheduler.
+# Add names here to keep a package in WHEELS (manually buildable)
+# but skip it during the weekly --checks run.
+_WEEKLY_EXCLUDE = {
+    "ffmpeg",
+}
+
+
+def _make_weekly(wheels: dict[str, type[WheelBase]], exclude: set[str]) -> dict[str, type[WheelBase]]:
+    return {k: v for k, v in wheels.items() if k not in exclude}
+
+
 # Anaconda package name → wheel class (None entries omitted)
 WHEELS: dict[str, type[WheelBase]] = {
     "aiohttp": Aiohttp,
@@ -63,3 +75,6 @@ WHEELS: dict[str, type[WheelBase]] = {
     "sqlalchemy": SQLAlchemy,
     "zeroconf": Zeroconf,
 }
+
+
+WEEKLY_WHEELS: dict[str, type[WheelBase]] = _make_weekly(WHEELS, _WEEKLY_EXCLUDE)

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from wheelbuilder.builder import BuildPlatform, build_wheels, compare_versions
 from wheelbuilder.piprepo import RepoFolder
-from wheelbuilder.registry import WHEELS
+from wheelbuilder.registry import WEEKLY_WHEELS, WHEELS
 
 
 def _write_build_summary(failed: list[str]) -> None:
@@ -103,9 +103,7 @@ class WheelBuilderCLI:
     def cmd_action_build(self, args: argparse.Namespace) -> None:
         output = Path(args.output)
         failed: list[str] = []
-        for name, wheel_cls in WHEELS.items():
-            if not wheel_cls.weekly():
-                continue
+        for name, wheel_cls in WEEKLY_WHEELS.items():
             try:
                 if args.checks:
                     platforms = compare_versions(name, wheel_cls)

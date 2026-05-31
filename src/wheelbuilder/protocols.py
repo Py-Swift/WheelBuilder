@@ -155,13 +155,6 @@ class WheelBase:
         return None
 
     @classmethod
-    def weekly(cls) -> bool:
-        """Whether this package participates in the weekly auto-update check.
-        Set to False for packages with a fixed/non-PyPI source that should
-        never be auto-triggered by the weekly scheduler."""
-        return True
-
-    @classmethod
     def r2_name(cls) -> str:
         """Package name used to look up wheels in the R2 index.
         Defaults to cls.name; override when the wheel name differs from the
