@@ -298,6 +298,7 @@ class MaturinWheelBase(CiWheelBase):
 
         if self.platform.sdk == SDK.android:
             env["SDKROOT"] = str(tools.get_macos_sdk())
+            env["CIBW_XBUILD_TOOLS_ANDROID"] = "rustc cargo maturin"
         else:
             ios_sdkroot = self.platform.sdk_root()
             macos_sdkroot = tools.get_macos_sdk()
