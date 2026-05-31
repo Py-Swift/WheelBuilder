@@ -6,19 +6,32 @@ class Pydantic_core(MaturinWheelBase):
     def env(self):
         e = super().env()
         if self.platform.sdk != SDK.android:
-            # pyo3-ffi's build script requires _sysconfigdata*.py in
-            # PYO3_CROSS_LIB_DIR. Python-iOS-support xcframework omits this
-            # file. Create a stub with the SOABI value that pyo3-ffi needs.
-            stub = (
-                "python3 -c "
-                "'import pathlib,sysconfig,sys,json;"
-                'd=sysconfig.get_config_var("LIBDIR");'
-                "p=pathlib.Path(d);"
-                's="cpython-{}{}-arm-apple-ios".format(*sys.version_info[:2]);'
-                'v="{}.{}".format(*sys.version_info[:2]);'
-                '(p/"_sysconfigdata__arm-apple-ios.py").write_text("build_time_vars="+json.dumps({"SOABI":s,"VERSION":v,"LDVERSION":v,"EXT_SUFFIX":"."+s+".so","Py_DEBUG":"0","Py_GIL_DISABLED":"0","Py_ENABLE_SHARED":"0","prefix":"","SIZEOF_VOID_P":"8","LIBDIR":d,"LDLIBRARY":"libpython"+v+".a"}))'
-                "'"
+            # pyo3 0.28.3 for iOS requires framework linking against
+            # Python.framework/Python. Python-Apple-support xcframework
+            # provides no libpython3.13.a — only the framework binary.
+            # Using PYO3_CONFIG_FILE overrides all of pyo3's auto-detection
+            # (takes priority over PYO3_CROSS=1 and from_interpreter()).
+            # suppress_build_script_link_lines=true + extra_build_script_line
+            # emits the correct cargo:rustc-link-lib=framework=Python flags.
+            gen_config = (
+                "python3 -c \""
+                "import pathlib,sysconfig,sys;"
+                "d=sysconfig.get_config_var('LIBDIR');"
+                "prefix=str(pathlib.Path(d).parent);"
+                "v='{}.{}'.format(*sys.version_info[:2]);"
+                "cfg='implementation=CPython\\n"
+                "version={v}\\n"
+                "shared=true\\n"
+                "abi3=false\\n"
+                "suppress_build_script_link_lines=true\\n"
+                "extra_build_script_line=cargo:rustc-link-lib=framework=Python\\n"
+                "extra_build_script_line=cargo:rustc-link-search=framework={prefix}\\n"
+                "pointer_width=64\\n'.format(v=v,prefix=prefix);"
+                "pathlib.Path('/tmp/pyo3_ios_config.txt').write_text(cfg)"
+                "\""
             )
             existing = e.get("CIBW_BEFORE_BUILD", "pip install maturin")
-            e["CIBW_BEFORE_BUILD_IOS"] = f"{stub} && {existing}"
+            e["CIBW_BEFORE_BUILD_IOS"] = f"{gen_config} && {existing}"
+            existing_ios_env = e.get("CIBW_ENVIRONMENT_IOS", "")
+            e["CIBW_ENVIRONMENT_IOS"] = f"{existing_ios_env} PYO3_CONFIG_FILE=/tmp/pyo3_ios_config.txt".strip()
         return e
