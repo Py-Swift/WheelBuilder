@@ -31,7 +31,10 @@ class Pydantic_core(MaturinWheelBase):
                 "\""
             )
             existing = e.get("CIBW_BEFORE_BUILD", "")
-            e["CIBW_BEFORE_BUILD_IOS"] = f"{gen_config} && {existing}".rstrip(" &")
+            before = f"pip install maturin && {gen_config}"
+            if existing:
+                before = f"{before} && {existing}"
+            e["CIBW_BEFORE_BUILD_IOS"] = before
             existing_ios_env = e.get("CIBW_ENVIRONMENT_IOS", "")
             e["CIBW_ENVIRONMENT_IOS"] = f"{existing_ios_env} PYO3_CONFIG_FILE=/tmp/pyo3_ios_config.txt".strip()
         return e

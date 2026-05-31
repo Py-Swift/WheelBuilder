@@ -338,6 +338,7 @@ class MaturinWheelBase(CiWheelBase):
                     'PYO3_CROSS_LIB_DIR=$(python3 -c \'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))\')',
                 ]
             )
+            env["CIBW_BEFORE_BUILD"] = "pip install maturin"
             env["CIBW_BUILD_FRONTEND"] = "build;args: --no-isolation"
         return env
 
