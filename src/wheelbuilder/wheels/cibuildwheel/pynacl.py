@@ -7,10 +7,11 @@ class Pynacl(CiWheelBase):
         env = self.base_env()
         if self.platform.sdk == SDK.android:
             # LDSHARED override: Android Python's sysconfigdata embeds a
-            # hardcoded builder-machine path (e.g. /Users/msmith/...) with the
-            # wrong API level. Override it so distutils uses CC (set by
-            # cibuildwheel from ANDROID_NDK_HOME + ANDROID_API_LEVEL) directly.
-            env["CIBW_ENVIRONMENT_ANDROID"] = 'SODIUM_INSTALL="bundled" PKG_CONFIG_PATH="" MAKE=/tmp/pynacl_make_wrapper LDSHARED="$CC -shared"'
+            # hardcoded builder-machine path (e.g. /Users/msmith/...) with
+            # the wrong API level. $CC in CIBW_ENVIRONMENT is not expanded
+            # (CC isn't set at env-evaluation time). Use a wrapper script
+            # created in BEFORE_BUILD that defers $CC expansion to link time.
+            env["CIBW_ENVIRONMENT_ANDROID"] = 'SODIUM_INSTALL="bundled" PKG_CONFIG_PATH="" MAKE=/tmp/pynacl_make_wrapper LDSHARED=/tmp/pynacl_ldshared'
             # Wrap libsodium's configure to add --host at runtime (reading CC since
             # CIBW_HOST_TRIPLET is not available in before_build env, only android_env).
             # Wrap make so that "make check" is skipped for Android cross-compilation.
@@ -40,7 +41,12 @@ fi
 unset MAKE
 exec make "$@"
 MAKESCRIPT
-chmod +x /tmp/pynacl_make_wrapper"""
+chmod +x /tmp/pynacl_make_wrapper
+cat > /tmp/pynacl_ldshared << 'LDSCRIPT'
+#!/bin/sh
+exec ${CC} -shared "$@"
+LDSCRIPT
+chmod +x /tmp/pynacl_ldshared"""
         else:
             # iOS: with default build isolation pip installs cffi iOS binary into
             # the isolated venv, but macOS Python can't import the iOS-targeted
@@ -61,7 +67,7 @@ for p in list(sd.glob('cffi*')) + list(sd.glob('_cffi_backend*')):
     shutil.rmtree(p) if p.is_dir() else p.unlink(missing_ok=True)
 z = zipfile.ZipFile(whl)
 for n in z.namelist():
-    if (n.startswith('cffi/') or '_cffi_backend' in n) and not n.endswith('/'):
+    if (n.startswith('cffi/') or '_cffi_backend' in n or (n.startswith('cffi-') and '.dist-info/' in n)) and not n.endswith('/'):
         t = sd / n
         t.parent.mkdir(parents=True, exist_ok=True)
         t.write_bytes(z.read(n))
