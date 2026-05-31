@@ -31,7 +31,7 @@ class Pydantic_core(MaturinWheelBase):
                 "\""
             )
             existing = e.get("CIBW_BEFORE_BUILD", "")
-            before = f"pip install maturin && {gen_config}"
+            before = gen_config
             if existing:
                 before = f"{before} && {existing}"
             e["CIBW_BEFORE_BUILD_IOS"] = before
