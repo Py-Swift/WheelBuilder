@@ -6,7 +6,11 @@ class Pynacl(CiWheelBase):
     def env(self):
         env = self.base_env()
         if self.platform.sdk == SDK.android:
-            env["CIBW_ENVIRONMENT_ANDROID"] = 'SODIUM_INSTALL="bundled" PKG_CONFIG_PATH="" MAKE=/tmp/pynacl_make_wrapper'
+            # LDSHARED override: Android Python's sysconfigdata embeds a
+            # hardcoded builder-machine path (e.g. /Users/msmith/...) with the
+            # wrong API level. Override it so distutils uses CC (set by
+            # cibuildwheel from ANDROID_NDK_HOME + ANDROID_API_LEVEL) directly.
+            env["CIBW_ENVIRONMENT_ANDROID"] = 'SODIUM_INSTALL="bundled" PKG_CONFIG_PATH="" MAKE=/tmp/pynacl_make_wrapper LDSHARED="$CC -shared"'
             # Wrap libsodium's configure to add --host at runtime (reading CC since
             # CIBW_HOST_TRIPLET is not available in before_build env, only android_env).
             # Wrap make so that "make check" is skipped for Android cross-compilation.
