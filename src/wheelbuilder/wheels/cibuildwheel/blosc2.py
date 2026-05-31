@@ -93,14 +93,24 @@ python3 - << 'MINIEXPRPATCH'
 import pathlib
 f = pathlib.Path('/tmp/blosc2_android_miniexpr/src/functions.c')
 t = f.read_text()
-old = '#define me_cpowf cpowf\\n#define me_cpow cpow'
+old = '#define me_cpowf cpowf\\n#define me_cpow cpow\\n#define me_csqrtf csqrtf\\n#define me_csqrt csqrt\\n#define me_cexpf cexpf\\n#define me_cexp cexp\\n#define me_clogf clogf\\n#define me_clog clog'
 new = (
+    'static inline float _Complex me_clogf_android(float _Complex a)'
+    ' { return __builtin_complex(logf(cabsf(a)), cargf(a)); }\\n'
+    'static inline double _Complex me_clog_android(double _Complex a)'
+    ' { return __builtin_complex(log(cabs(a)), carg(a)); }\\n'
     'static inline float _Complex me_cpowf_android(float _Complex a, float _Complex b)'
-    ' { return cexpf(b * clogf(a)); }\\n'
+    ' { return cexpf(b * me_clogf_android(a)); }\\n'
     'static inline double _Complex me_cpow_android(double _Complex a, double _Complex b)'
-    ' { return cexp(b * clog(a)); }\\n'
+    ' { return cexp(b * me_clog_android(a)); }\\n'
     '#define me_cpowf me_cpowf_android\\n'
-    '#define me_cpow me_cpow_android'
+    '#define me_cpow me_cpow_android\\n'
+    '#define me_csqrtf csqrtf\\n'
+    '#define me_csqrt csqrt\\n'
+    '#define me_cexpf cexpf\\n'
+    '#define me_cexp cexp\\n'
+    '#define me_clogf me_clogf_android\\n'
+    '#define me_clog me_clog_android'
 )
 if old in t:
     f.write_text(t.replace(old, new))
