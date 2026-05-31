@@ -175,8 +175,9 @@ def pip_download(name: str, version: str | None, output: Path) -> Path | None:
         if child.suffix == ".gz":
             untar(child, output)
             child.unlink(missing_ok=True)
+    name_lower = name.lower()
     for child in output.iterdir():
-        if child.is_dir() and child.name.startswith(name):
+        if child.is_dir() and child.name.lower().startswith(name_lower):
             return child
     return None
 

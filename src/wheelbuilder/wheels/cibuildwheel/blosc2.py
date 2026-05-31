@@ -130,7 +130,7 @@ CBLOSC2_SRC=/tmp/blosc2_android_cblosc2
 rm -rf $CBLOSC2_SRC
 git clone --depth 1 --branch v3.0.3 https://github.com/Blosc/c-blosc2.git $CBLOSC2_SRC
 # Remove hardcoded -lrt: Android Bionic has no separate librt
-sed -i '' '/set(LIBS \${LIBS} "rt")/d' $CBLOSC2_SRC/blosc/CMakeLists.txt"""
+sed -i '' '/set(LIBS \\${LIBS} "rt")/d' $CBLOSC2_SRC/blosc/CMakeLists.txt"""
         env["CIBW_ENVIRONMENT_ANDROID"] = " ".join(
             [
                 'PIP_EXTRA_INDEX_URL="https://pypi-index.psychowaspx.workers.dev/simple/"',
