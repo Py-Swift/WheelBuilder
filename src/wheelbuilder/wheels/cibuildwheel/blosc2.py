@@ -137,6 +137,9 @@ sed -i '' '/set(LIBS \${LIBS} "rt")/d' $CBLOSC2_SRC/blosc/CMakeLists.txt"""
                 'SKBUILD_CMAKE_ARGS="-DFETCHCONTENT_SOURCE_DIR_MINIEXPR=/tmp/blosc2_android_miniexpr;-DFETCHCONTENT_SOURCE_DIR_BLOSC2=/tmp/blosc2_android_cblosc2;-C;/tmp/blosc2_android_cmake_init.cmake"',
             ]
         )
+        # Android: numexpr (blosc2 runtime dep) has no Android wheels so tests
+        # can't be installed; and we can't execute Android binaries on macOS anyway
+        env["CIBW_TEST_SKIP"] = "*-android*"
         return env
 
     def patches(self):
