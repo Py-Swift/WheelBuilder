@@ -48,26 +48,35 @@ exec ${CC} -shared "$@"
 LDSCRIPT
 chmod +x /tmp/pynacl_ldshared"""
         else:
-            # iOS: with default build isolation pip installs cffi iOS binary into
-            # the isolated venv, but macOS Python can't import the iOS-targeted
-            # _cffi_backend extension. Use --no-build-isolation so we control the
-            # build env, then replace the iOS cffi with a macOS build using zipfile
-            # extraction (pip install rejects macOS wheels in the iOS-targeted venv).
-            # Also patch setup.py so libsodium configure gets --host (cross-compile
-            # mode) and make check is skipped (can't run iOS binaries on macOS).
-            # {package} expands to the absolute path of the pynacl source dir.
-            # Use pip wheel --no-build-isolation instead of python -m build
-            # --no-isolation. The `build` frontend runs a pre-build dependency
-            # check (importlib.metadata) that reports cffi as missing even when
-            # the binary is in site-packages. `pip wheel` skips that check and
-            # calls the build backend directly, so cffi only needs to be importable.
+            # iOS: pip installs the iOS-targeted cffi binary into the venv,
+            # but macOS Python can't import it. Strategy: --no-build-isolation
+            # to control the env, then replace iOS cffi with a macOS-compatible
+            # binary via zipfile extraction (pip rejects cross-platform wheels).
+            # pycparser is installed separately (cffi 1.15+ no longer bundles it).
+            #
+            # BEFORE_BUILD runs once per Python version per arch. Use a
+            # Python-version-specific cffi download dir so cp313 and cp314
+            # wheels don't conflict.
+            #
+            # Skip 'make check' (can't run iOS binaries on macOS) by prepending
+            # /tmp/pynacl_ios_make to PATH with a make wrapper that exits 0 for
+            # the check target.
+            #
+            # Add --host to libsodium configure via a wrapper script that reads
+            # CC at configure time (CC is only set during the build step, not
+            # during BEFORE_BUILD).
             env["CIBW_BUILD_FRONTEND"] = "pip; args: --no-build-isolation"
+            env["CIBW_ENVIRONMENT_IOS"] = 'SODIUM_INSTALL="bundled" PATH="/tmp/pynacl_ios_make:$PATH"'
             env["CIBW_BEFORE_BUILD_IOS"] = """\
-python3 -m pip download --only-binary :all: --platform macosx_11_0_arm64 --python-version "$(python3 -c 'import sys; v=sys.version_info; print(str(v[0])+"."+str(v[1]))')" --implementation cp cffi -d /tmp/pynacl_cffi_dl --quiet
-python3 - << 'CFFIEOF'
-import zipfile, pathlib, site, shutil
+PY_VER=$(python3 -c 'import sys; v=sys.version_info; print(str(v[0])+"."+str(v[1]))')
+CFFI_DIR="/tmp/pynacl_cffi_${PY_VER//./}"
+mkdir -p "${CFFI_DIR}"
+python3 -m pip download --only-binary :all: --platform macosx_11_0_arm64 --python-version "${PY_VER}" --implementation cp cffi -d "${CFFI_DIR}" --quiet
+python3 - "${CFFI_DIR}" << 'CFFIEOF'
+import zipfile, pathlib, site, shutil, sys
+dl_dir = pathlib.Path(sys.argv[1])
 sd = pathlib.Path(site.getsitepackages()[0])
-whl = list(pathlib.Path('/tmp/pynacl_cffi_dl').glob('cffi*.whl'))[0]
+whl = list(dl_dir.glob('cffi*.whl'))[0]
 for p in list(sd.glob('cffi*')) + list(sd.glob('_cffi_backend*')):
     shutil.rmtree(p) if p.is_dir() else p.unlink(missing_ok=True)
 z = zipfile.ZipFile(whl)
@@ -78,20 +87,37 @@ for n in z.namelist():
         t.write_bytes(z.read(n))
 CFFIEOF
 pip install setuptools wheel pycparser
-python3 - "{package}" << 'PYEOF'
-import sys, os
-cc = os.environ.get('CC', os.environ.get('CXX', '')).split('/')[-1]
-host = 'x86_64-apple-darwin10' if 'x86_64' in cc else 'arm-apple-darwin10'
-setup = os.path.join(sys.argv[1], 'setup.py')
-with open(setup) as f:
-    t = f.read()
-t = t.replace('"--with-pic",', '"--with-pic", "--host=' + host + '",')
-t = t.replace(
-    'subprocess.check_call(["make", "check"]',
-    'if False: subprocess.check_call(["make", "check"]',
-)
-with open(setup, 'w') as f:
-    f.write(t)
-PYEOF"""
-            env["CIBW_ENVIRONMENT_IOS"] = 'SODIUM_INSTALL="bundled"'
+mkdir -p /tmp/pynacl_ios_make
+cat > /tmp/pynacl_ios_make/make << 'MAKE_WRAPPER'
+#!/bin/sh
+if [ "$1" = "check" ]; then
+    echo "Skipping make check for iOS cross-compilation"
+    exit 0
+fi
+exec /usr/bin/make "$@"
+MAKE_WRAPPER
+chmod +x /tmp/pynacl_ios_make/make
+SRC="{package}/src/libsodium"
+if [ ! -f "$SRC/configure.orig" ]; then
+    mv "$SRC/configure" "$SRC/configure.orig"
+fi
+cat > "$SRC/configure" << 'CONFSCRIPT'
+#!/bin/sh
+SDIR=$(cd "$(dirname "$0")" && pwd)
+CC_BASE=$(basename "${CC:-}")
+HOST=""
+if echo "$CC_BASE" | grep -q 'x86_64.*ios'; then
+    HOST="x86_64-apple-ios-simulator"
+elif echo "$CC_BASE" | grep -q 'simulator'; then
+    HOST="aarch64-apple-ios-simulator"
+elif echo "$CC_BASE" | grep -q 'arm64'; then
+    HOST="aarch64-apple-ios"
+fi
+if [ -n "$HOST" ]; then
+    exec "$SDIR/configure.orig" --host="$HOST" "$@"
+else
+    exec "$SDIR/configure.orig" "$@"
+fi
+CONFSCRIPT
+chmod +x "$SRC/configure\""""
         return env
