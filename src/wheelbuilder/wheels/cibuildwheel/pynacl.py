@@ -29,8 +29,13 @@ f = pathlib.Path('{package}/setup.py')
 t = f.read_text()
 old_check = '        subprocess.check_call(["make", "check"] + make_args, cwd=build_temp)'
 new_check = '        pass  # make check skipped for cross-compilation'
-old_cfg = '        subprocess.check_call(\n            [configure]\n            + configure_flags\n            + ["--prefix", os.path.abspath(self.build_clib)],'
-new_cfg = '        if os.environ.get("CIBW_HOST_TRIPLET"):\n            configure_flags.append("--host=" + os.environ["CIBW_HOST_TRIPLET"])\n' + old_cfg
+old_cfg = '''        subprocess.check_call(
+            [configure]
+            + configure_flags
+            + ["--prefix", os.path.abspath(self.build_clib)],'''
+new_cfg = '''        if os.environ.get("CIBW_HOST_TRIPLET"):
+            configure_flags.append("--host=" + os.environ["CIBW_HOST_TRIPLET"])
+''' + old_cfg
 assert old_check in t, 'PATCH FAILED: make check pattern not found'
 assert old_cfg in t, 'PATCH FAILED: configure pattern not found'
 t = t.replace(old_check, new_check, 1)
@@ -57,7 +62,7 @@ PATCH"""
                 f'PIP_EXTRA_INDEX_URL="{_PYPI_INDEX}"',
             ])
             env["CIBW_BEFORE_BUILD_IOS"] = (
-                "pip install 'cffi>=2.0.0'\n"
+                "pip install 'cffi>=2.0.0' 'setuptools>=40.8.0' wheel\n"
                 "python3 - << 'CFFI_FIX'\n"
                 "import subprocess, sys, site, zipfile, pathlib, glob, shutil\n"
                 "ver = str(sys.version_info.major) + str(sys.version_info.minor)\n"
