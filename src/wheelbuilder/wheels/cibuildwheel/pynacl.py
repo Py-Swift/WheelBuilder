@@ -11,7 +11,9 @@ class Pynacl(CiWheelBase):
 
         # Build libsodium ourselves (skip 'make check') so we can use
         # SODIUM_INSTALL=system and avoid pynacl's bundled build entirely.
-        # CIBW_ARCHS is set per-arch so libsodium.sh infers --host correctly.
+        # libsodium.sh uses sysconfig.get_platform() to infer --host and,
+        # for Android, sets CC to the NDK clang explicitly (CC is not the
+        # NDK clang at BEFORE_BUILD time, only during the actual build step).
         build_sodium = (
             f"bash ${{GITHUB_WORKSPACE}}/src/wheelbuilder/scripts/libsodium.sh"
             f' "{{package}}/src/libsodium" "{_SODIUM_PREFIX}"'
