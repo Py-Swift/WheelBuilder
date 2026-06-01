@@ -21,6 +21,10 @@ class Pynacl(CiWheelBase):
             env["CIBW_ENVIRONMENT_ANDROID"] = " ".join([
                 'PYNACL_SODIUM_STATIC="1"',
                 f'PIP_EXTRA_INDEX_URL="{_PYPI_INDEX}"',
+                # LDSHARED in _sysconfigdata has the wrong NDK path (from BeeWare's
+                # build machine). Override it using $CC which cibuildwheel sets
+                # correctly via `python -m android env`.
+                'LDSHARED="$CC -shared"',
             ])
             env["CIBW_BEFORE_BUILD_ANDROID"] = """\
 python3 - << 'PATCH'
