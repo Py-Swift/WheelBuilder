@@ -69,7 +69,11 @@ if [ -n "$IOS_SDK" ]; then
     export CC="$(xcrun --sdk "$IOS_SDK" -f clang)"
     export CXX="$(xcrun --sdk "$IOS_SDK" -f clang++)"
     export AR="$(xcrun --sdk "$IOS_SDK" -f ar)"
-    export CFLAGS="${CFLAGS:-} -isysroot $SYSROOT"
+    case "$HOST" in
+        x86_64-*) ARCH_FLAG="-arch x86_64" ;;
+        *) ARCH_FLAG="-arch arm64" ;;
+    esac
+    export CFLAGS="${CFLAGS:-} -isysroot $SYSROOT $ARCH_FLAG"
 fi
 
 echo "Using HOST='$HOST' CC='${CC:-}'"
