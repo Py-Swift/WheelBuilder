@@ -22,9 +22,11 @@ class Pynacl(CiWheelBase):
                 'PYNACL_SODIUM_STATIC="1"',
                 f'PIP_EXTRA_INDEX_URL="{_PYPI_INDEX}"',
                 # LDSHARED in _sysconfigdata has the wrong NDK path (from BeeWare's
-                # build machine). Override it using $CC which cibuildwheel sets
-                # correctly via `python -m android env`.
-                'LDSHARED="$CC -shared"',
+                # build machine, /Users/msmith/...). We can't use $CC in
+                # CIBW_ENVIRONMENT because it's expanded before android_env sets CC.
+                # Instead, point LDSHARED to a wrapper script that resolves $CC at
+                # link execution time (when android_env has CC set correctly).
+                'LDSHARED="/tmp/pynacl_ldshared.sh"',
             ])
             env["CIBW_BEFORE_BUILD_ANDROID"] = """\
 python3 - << 'PATCH'
@@ -46,7 +48,12 @@ t = t.replace(old_check, new_check, 1)
 t = t.replace(old_cfg, new_cfg, 1)
 f.write_text(t)
 print('Patched setup.py: skipped make check + added --host')
-PATCH"""
+PATCH
+cat > /tmp/pynacl_ldshared.sh << 'WRAPEOF'
+#!/bin/sh
+exec "$CC" -shared "$@"
+WRAPEOF
+chmod +x /tmp/pynacl_ldshared.sh"""
 
         else:
             # iOS: pre-build libsodium with xcrun (SODIUM_INSTALL=system).
