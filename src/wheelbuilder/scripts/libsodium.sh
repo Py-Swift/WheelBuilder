@@ -7,39 +7,49 @@ set -euo pipefail
 SRC_DIR="$1"
 PREFIX="$2"
 
+# sysconfig.get_platform() format examples:
+#   ios-13.0-arm64-iphoneos
+#   ios-13.0-arm64-iphonesimulator
+#   ios-13.0-x86_64-iphonesimulator
+#   android-24-arm64 / android-24-x86_64
 PLAT=$(python3 -c "import sysconfig; print(sysconfig.get_platform())" 2>/dev/null || echo "")
 echo "=== libsodium.sh: PLAT='$PLAT' CC='${CC:-}' NDK='${ANDROID_NDK_HOME:-}' ==="
 
 HOST=""
+IOS_SDK=""
 
 case "$PLAT" in
+    ios-*-arm64-iphoneos)
+        HOST="arm-apple-darwin"
+        IOS_SDK="iphoneos"
+        ;;
+    ios-*-arm64-iphonesimulator)
+        HOST="arm-apple-darwin"
+        IOS_SDK="iphonesimulator"
+        ;;
+    ios-*-x86_64-iphonesimulator)
+        HOST="x86_64-apple-darwin"
+        IOS_SDK="iphonesimulator"
+        ;;
     android-*-arm64|android-*-aarch64)
         HOST="aarch64-linux-android"
         API="${ANDROID_API_LEVEL:-24}"
         NDK="${ANDROID_NDK_HOME:?ANDROID_NDK_HOME must be set}"
-        NDK_TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin"
-        export CC="$NDK_TOOLCHAIN/aarch64-linux-android${API}-clang"
-        export CXX="$NDK_TOOLCHAIN/aarch64-linux-android${API}-clang++"
-        export AR="$NDK_TOOLCHAIN/llvm-ar"
-        export RANLIB="$NDK_TOOLCHAIN/llvm-ranlib"
+        TC="$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+        export CC="$TC/aarch64-linux-android${API}-clang"
+        export CXX="$TC/aarch64-linux-android${API}-clang++"
+        export AR="$TC/llvm-ar"
+        export RANLIB="$TC/llvm-ranlib"
         ;;
     android-*-x86_64)
         HOST="x86_64-linux-android"
         API="${ANDROID_API_LEVEL:-24}"
         NDK="${ANDROID_NDK_HOME:?ANDROID_NDK_HOME must be set}"
-        NDK_TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin"
-        export CC="$NDK_TOOLCHAIN/x86_64-linux-android${API}-clang"
-        export CXX="$NDK_TOOLCHAIN/x86_64-linux-android${API}-clang++"
-        export AR="$NDK_TOOLCHAIN/llvm-ar"
-        export RANLIB="$NDK_TOOLCHAIN/llvm-ranlib"
-        ;;
-    ios-*-arm64_iphoneos|ios-*-arm64_iphonesimulator)
-        # libsodium 1.0.18 config.sub (2019) doesn't know ios; arm-apple-darwin
- cross-compile mode.
-        HOST="arm-apple-darwin"
-        ;;
-    ios-*-x86_64_iphonesimulator)
-        HOST="x86_64-apple-darwin"
+        TC="$NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+        export CC="$TC/x86_64-linux-android${API}-clang"
+        export CXX="$TC/x86_64-linux-android${API}-clang++"
+        export AR="$TC/llvm-ar"
+        export RANLIB="$TC/llvm-ranlib"
         ;;
     *)
         # Fallback: sniff from CC full path
@@ -53,6 +63,14 @@ case "$PLAT" in
         fi
         ;;
 esac
+
+if [ -n "$IOS_SDK" ]; then
+    SYSROOT=$(xcrun --sdk "$IOS_SDK" --show-sdk-path)
+    export CC="$(xcrun --sdk "$IOS_SDK" -f clang)"
+    export CXX="$(xcrun --sdk "$IOS_SDK" -f clang++)"
+    export AR="$(xcrun --sdk "$IOS_SDK" -f ar)"
+    export CFLAGS="${CFLAGS:-} -isysroot $SYSROOT"
+fi
 
 echo "Using HOST='$HOST' CC='${CC:-}'"
 
